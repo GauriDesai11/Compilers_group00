@@ -69,17 +69,27 @@ public class ConstantFolder
 		// Previous instructions are likely to be the constants if they are constant loading instructions
 		InstructionHandle prev1 = ih.getPrev();
 		InstructionHandle prev2 = prev1 != null ? prev1.getPrev() : null;
+		int cnstValue = 0;
 
 		if (prev1 != null && prev2 != null) {
 			Instruction prevInst1 = prev1.getInstruction();
 			Instruction prevInst2 = prev2.getInstruction();
 
 			// Check if these instructions are loading constants
-			if (isConstantLoadingInstruction(prevInst1) && isConstantLoadingInstruction(prevInst2)) {
-				Number constantValue = computeConstantValue(prevInst1, prevInst2, ai, cpgen);
+			if ((prevInst1 instanceof LDC) && (prevInst2 instanceof LDC)) {
+				Object obj1 = ((LDC) prevInst1).getValue(cpgen);
+				Object obj2 = ((LDC) prevInst2).getValue(cpgen);
+
+				if ((obj1 instanceof Integer) && (obj2 instanceof Integer))
+				{
+					if (ai instanceof IADD) {
+						cnstValue = (Integer) obj1 + (Integer) obj2;
+						System.out.println("number: " + cnstValue);
+					}
+				}
 
 				try {
-					il.delete(ih, prev2);
+					il.delete(ih); //il.delete(ih, prev2); //should remove ih, prev1 and prev2
 				} catch (TargetLostException e) {
 					// Handle cases where the instruction was a target of a branch instruction.
 					/*
@@ -89,30 +99,19 @@ public class ConstantFolder
 						}
 					}
 					*/
-
+				}
+				try {
+					il.delete(prev1);
+				} catch (TargetLostException e) {
+				}
+				try {
+					il.delete(prev2);
+				} catch (TargetLostException e) {
 				}
 
-				il.insert(ih, new PUSH(cpgen, constantValue)); //replacing the last 3 instructions
+				il.insert(ih, new PUSH(cpgen, cnstValue)); //replacing the last 3 instructions
 			}
 		}
-	}
-
-	private boolean isConstantLoadingInstruction(Instruction inst) {
-		// Check if the instruction is one of the constant loading instructions
-		return (inst instanceof LDC);
-				//|| (inst instanceof LDC2_W) || (inst instanceof BIPUSH) || (inst instanceof SIPUSH) || (inst instanceof ICONST) || (inst instanceof FCONST) || (inst instanceof LCONST) || (inst instanceof DCONST);
-	}
-
-	private Number computeConstantValue(Instruction inst1, Instruction inst2, ArithmeticInstruction ai, ConstantPoolGen cpgen) {
-		Number value1 = getConstantValue(inst1, cpgen);
-		Number value2 = getConstantValue(inst2, cpgen);
-
-		if (ai instanceof IADD) {
-			System.out.println("number: " + value1.intValue() + value2.intValue());
-			return value1.intValue() + value2.intValue();
-		}
-
-		return 0;
 	}
 
 	private Number getConstantValue(Instruction inst, ConstantPoolGen cpgen) {
