@@ -57,9 +57,63 @@ public class ConstantFolder
 
 	private Number performOperation(Object obj1, Object obj2, Instruction inst)
 	{
+		//Integers
 		if (inst instanceof IADD && obj1 instanceof Integer && obj2 instanceof Integer) {
 			return (Integer) obj1 + (Integer) obj2;
+		} else if ((inst instanceof ISUB && obj1 instanceof Integer && obj2 instanceof Integer))
+		{
+			return (Integer) obj1 - (Integer) obj2;
+		} else if ((inst instanceof IMUL && obj1 instanceof Integer && obj2 instanceof Integer))
+		{
+			return (Integer) obj1 * (Integer) obj2;
+		} else if ((inst instanceof IDIV && obj1 instanceof Integer && obj2 instanceof Integer))
+		{
+			return (Integer) obj1 / (Integer) obj2;
 		}
+
+		//long
+		if (inst instanceof LADD && obj1 instanceof Long && obj2 instanceof Long) {
+			return (Long) obj1 + (Long) obj2;
+		} else if ((inst instanceof LSUB && obj1 instanceof Long && obj2 instanceof Long))
+		{
+			return (Long) obj1 - (Long) obj2;
+		} else if ((inst instanceof LMUL && obj1 instanceof Long && obj2 instanceof Long))
+		{
+			return (Long) obj1 * (Long) obj2;
+		} else if ((inst instanceof LDIV && obj1 instanceof Long && obj2 instanceof Long))
+		{
+			return (Long) obj1 / (Long) obj2;
+		}
+
+		//float
+		if (inst instanceof FADD && obj1 instanceof Float && obj2 instanceof Float) {
+			return (Float) obj1 + (Float) obj2;
+		} else if ((inst instanceof FSUB && obj1 instanceof Float && obj2 instanceof Float))
+		{
+			return (Float) obj1 - (Float) obj2;
+		} else if ((inst instanceof FMUL && obj1 instanceof Float && obj2 instanceof Float))
+		{
+			return (Float) obj1 * (Float) obj2;
+		} else if ((inst instanceof FDIV && obj1 instanceof Float && obj2 instanceof Float))
+		{
+			return (Float) obj1 / (Float) obj2;
+		}
+
+		//double
+		if (inst instanceof DADD && obj1 instanceof Double && obj2 instanceof Double) {
+			return (Double) obj1 + (Double) obj2;
+		} else if ((inst instanceof DSUB && obj1 instanceof Double && obj2 instanceof Double))
+		{
+			return (Double) obj1 - (Double) obj2;
+		} else if ((inst instanceof DMUL && obj1 instanceof Double && obj2 instanceof Double))
+		{
+			return (Double) obj1 * (Double) obj2;
+		} else if ((inst instanceof DDIV && obj1 instanceof Double && obj2 instanceof Double))
+		{
+			return (Double) obj1 / (Double) obj2;
+		}
+
+
 		// Add more conditions for other types and operations (ISUB, IMUL, IDIV, etc.)
 		return 0;
 	}
