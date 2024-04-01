@@ -164,26 +164,18 @@ public class ConstantFolder
 					methodGen.setMaxLocals();
 					//System.out.println("set the locals\n");
 					gen.replaceMethod(method, methodGen.getMethod()); //'method' = original method --> replace this with the new method with the updated InstructionList
-					System.out.println("replaced the method\n");
-				}else {
-
-					System.out.println(" ########### not making any changes ########### \n");
-					methodGen.setInstructionList(instructionList);
-					System.out.println("updated the instructionList\n");
-					methodGen.setMaxStack(); //stack frame size needs to be correctly calculated and set
-					System.out.println("set the stack\n");
-					methodGen.setMaxLocals();
-					System.out.println("set the locals\n");
-					//methodGen.removeCodeAttributes();
-					//methodGen.addStackMapTable();
-					//gen.replaceMethod(method, methodGen.getMethod());
 					//System.out.println("replaced the method\n");
 				}
 			}
 		}
 
+
+		gen.setConstantPool(cpgen);
 		this.optimized = gen.getJavaClass(); //line from the original code
+		//ConstantPool cp3 = cpgen.getConstantPool();
+		//this.optimized.setConstantPool(cp3);
 	}
+
 
 	public void write(String optimisedFilePath)
 	{
