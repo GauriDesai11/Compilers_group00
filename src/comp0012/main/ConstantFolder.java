@@ -99,7 +99,7 @@ public class ConstantFolder
 		} else if ((inst instanceof IDIV && obj1 instanceof Integer && obj2 instanceof Integer))
 		{
 			//System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
-			return (Integer) obj1 / (Integer) obj2;
+			return (Integer) obj2 / (Integer) obj1;
 		}
 
 		//long
@@ -117,7 +117,7 @@ public class ConstantFolder
 		} else if ((inst instanceof LDIV && obj1 instanceof Long && obj2 instanceof Long))
 		{
 			//System.out.println("1st: " + (Long) obj1 + " and " + (Long) obj2 + " = ");
-			return (Long) obj1 / (Long) obj2;
+			return (Long) obj2 / (Long) obj1;
 		}
 
 		//float
@@ -135,7 +135,7 @@ public class ConstantFolder
 		} else if ((inst instanceof FDIV && obj1 instanceof Float && obj2 instanceof Float))
 		{
 			//System.out.println("1st: " + (Float) obj1 + " and " + (Float) obj2 + " = ");
-			return (Float) obj1 / (Float) obj2;
+			return (Float) obj2 / (Float) obj1;
 		}
 
 		//double
@@ -153,7 +153,7 @@ public class ConstantFolder
 		} else if ((inst instanceof DDIV && obj1 instanceof Double && obj2 instanceof Double))
 		{
 			//System.out.println("1st: " + (Double) obj1 + " and " + (Double) obj2 + " = ");
-			return (Double) obj1 / (Double) obj2;
+			return (Double) obj2 / (Double) obj1;
 		}
 
 
@@ -242,7 +242,7 @@ public class ConstantFolder
 			cpgen = SimpleFoldingOptimization(cpgen);
 		}
 
-		gen.setConstantPool(cpgen);
+		gen.setConstantPool(cpgen); //update the constant pool
 		this.optimized = gen.getJavaClass(); //line from the original code
 	}
 

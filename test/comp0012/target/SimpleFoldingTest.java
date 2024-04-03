@@ -35,4 +35,31 @@ public class SimpleFoldingTest {
         assertEquals("12412\n", outContent.toString());
     }
 
+    
+    @Test
+    public void testLongAddition() {
+        sf.longAdd();
+        assertEquals("1500\n", outContent.toString());
+    }
+    
+    
+    @Test
+    public void testFloatMultiply() {
+        sf.floatMul();
+        assertEquals("50.0\n", outContent.toString());
+    }
+    
+    
+    @Test
+    public void testFloatDivision() {
+        sf.floatDiv();
+        assertEquals("2.0\n", outContent.toString());
+    }
+    
+    @Test
+    public void testDoubleDivision() {
+        sf.doubleDiv();
+        assertEquals("0.2\n", outContent.toString());
+    }
+
 }
