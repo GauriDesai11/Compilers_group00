@@ -37,24 +37,35 @@ public class ConstantFolder
 
 	private Result replaceInstructions(InstructionList il, InstructionHandle ih, InstructionHandle prev1, InstructionHandle prev2, Number result, ConstantPoolGen cpg)
 	{
-		Object obj1 = ((LDC) prev1.getInstruction()).getValue(cpg);
 		int index = 0;
+		if (prev1.getInstruction() instanceof LDC)
+		{
+			Object obj1 = ((LDC) prev1.getInstruction()).getValue(cpg);
+			if (obj1 instanceof Integer)
+			{
+				index = cpg.addInteger(result.intValue());
+			}else if (obj1 instanceof Float)
+			{
+				index = cpg.addFloat(result.floatValue());
+			}
 
-		if (obj1 instanceof Integer)
+			il.insert(ih, new LDC(index));
+
+		} else if (prev1.getInstruction() instanceof LDC2_W)
 		{
-			index = cpg.addInteger(result.intValue());
-		} else if (obj1 instanceof Long)
-		{
-			index = cpg.addLong(result.longValue());
-		} else if (obj1 instanceof Float)
-		{
-			index = cpg.addFloat(result.floatValue());
-		} else if (obj1 instanceof Double)
-		{
-			index = cpg.addDouble(result.doubleValue());
+			Object obj1 = ((LDC2_W) prev1.getInstruction()).getValue(cpg);
+			if (obj1 instanceof Long)
+			{
+				index = cpg.addLong(result.longValue());
+			}else if (obj1 instanceof Double)
+			{
+				index = cpg.addDouble(result.doubleValue());
+			}
+
+			il.insert(ih, new LDC2_W(index));
 		}
+	
 		
-		il.insert(ih, new LDC(index));
 
 		try {
 			il.delete(ih);
@@ -165,6 +176,16 @@ public class ConstantFolder
 			if (prevInst1 instanceof LDC && prevInst2 instanceof LDC) {
 				Object obj1 = ((LDC) prevInst1).getValue(cpgen);
 				Object obj2 = ((LDC) prevInst2).getValue(cpgen);
+
+				if (obj1.getClass().equals(obj2.getClass())) {
+					Number result = performOperation(obj1, obj2, ih.getInstruction());
+					//System.out.println("result = " + result + "\n");
+					returned = replaceInstructions(instructionList, ih, prev1, prev2, result, cpgen);
+				}
+			} else if (prevInst1 instanceof LDC2_W && prevInst2 instanceof LDC2_W)
+			{
+				Object obj1 = ((LDC2_W) prevInst1).getValue(cpgen);
+				Object obj2 = ((LDC2_W) prevInst2).getValue(cpgen);
 
 				if (obj1.getClass().equals(obj2.getClass())) {
 					Number result = performOperation(obj1, obj2, ih.getInstruction());
