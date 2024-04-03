@@ -37,8 +37,23 @@ public class ConstantFolder
 
 	private Result replaceInstructions(InstructionList il, InstructionHandle ih, InstructionHandle prev1, InstructionHandle prev2, Number result, ConstantPoolGen cpg)
 	{
-		// Assuming result is always an integer for simplicity; adjust for other types
-		int index = cpg.addInteger(result.intValue());
+		Object obj1 = ((LDC) prev1.getInstruction()).getValue(cpg);
+		int index = 0;
+
+		if (obj1 instanceof Integer)
+		{
+			index = cpg.addInteger(result.intValue());
+		} else if (obj1 instanceof Long)
+		{
+			index = cpg.addLong(result.longValue());
+		} else if (obj1 instanceof Float)
+		{
+			index = cpg.addFloat(result.floatValue());
+		} else if (obj1 instanceof Double)
+		{
+			index = cpg.addDouble(result.doubleValue());
+		}
+		
 		il.insert(ih, new LDC(index));
 
 		try {
@@ -57,59 +72,76 @@ public class ConstantFolder
 
 	private Number performOperation(Object obj1, Object obj2, Instruction inst)
 	{
+		
 		//Integers
 		if (inst instanceof IADD && obj1 instanceof Integer && obj2 instanceof Integer) {
+			//System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
 			return (Integer) obj1 + (Integer) obj2;
 		} else if ((inst instanceof ISUB && obj1 instanceof Integer && obj2 instanceof Integer))
 		{
+			//System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
 			return (Integer) obj1 - (Integer) obj2;
 		} else if ((inst instanceof IMUL && obj1 instanceof Integer && obj2 instanceof Integer))
 		{
+			//System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
 			return (Integer) obj1 * (Integer) obj2;
 		} else if ((inst instanceof IDIV && obj1 instanceof Integer && obj2 instanceof Integer))
 		{
+			//System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
 			return (Integer) obj1 / (Integer) obj2;
 		}
 
 		//long
 		if (inst instanceof LADD && obj1 instanceof Long && obj2 instanceof Long) {
+			//System.out.println("1st: " + (Long) obj1 + " and " + (Long) obj2 + " = ");
 			return (Long) obj1 + (Long) obj2;
 		} else if ((inst instanceof LSUB && obj1 instanceof Long && obj2 instanceof Long))
 		{
+			//System.out.println("1st: " + (Long) obj1 + " and " + (Long) obj2 + " = ");
 			return (Long) obj1 - (Long) obj2;
 		} else if ((inst instanceof LMUL && obj1 instanceof Long && obj2 instanceof Long))
 		{
+			//System.out.println("1st: " + (Long) obj1 + " and " + (Long) obj2 + " = ");
 			return (Long) obj1 * (Long) obj2;
 		} else if ((inst instanceof LDIV && obj1 instanceof Long && obj2 instanceof Long))
 		{
+			//System.out.println("1st: " + (Long) obj1 + " and " + (Long) obj2 + " = ");
 			return (Long) obj1 / (Long) obj2;
 		}
 
 		//float
 		if (inst instanceof FADD && obj1 instanceof Float && obj2 instanceof Float) {
+			//System.out.println("1st: " + (Float) obj1 + " and " + (Float) obj2 + " = ");
 			return (Float) obj1 + (Float) obj2;
 		} else if ((inst instanceof FSUB && obj1 instanceof Float && obj2 instanceof Float))
 		{
+			//System.out.println("1st: " + (Float) obj1 + " and " + (Float) obj2 + " = ");
 			return (Float) obj1 - (Float) obj2;
 		} else if ((inst instanceof FMUL && obj1 instanceof Float && obj2 instanceof Float))
 		{
+			//System.out.println("1st: " + (Float) obj1 + " and " + (Float) obj2 + " = ");
 			return (Float) obj1 * (Float) obj2;
 		} else if ((inst instanceof FDIV && obj1 instanceof Float && obj2 instanceof Float))
 		{
+			//System.out.println("1st: " + (Float) obj1 + " and " + (Float) obj2 + " = ");
 			return (Float) obj1 / (Float) obj2;
 		}
 
 		//double
 		if (inst instanceof DADD && obj1 instanceof Double && obj2 instanceof Double) {
+			//System.out.println("1st: " + (Double) obj1 + " and " + (Double) obj2 + " = ");
 			return (Double) obj1 + (Double) obj2;
 		} else if ((inst instanceof DSUB && obj1 instanceof Double && obj2 instanceof Double))
 		{
+			//System.out.println("1st: " + (Double) obj1 + " and " + (Double) obj2 + " = ");
 			return (Double) obj1 - (Double) obj2;
 		} else if ((inst instanceof DMUL && obj1 instanceof Double && obj2 instanceof Double))
 		{
+			//System.out.println("1st: " + (Double) obj1 + " and " + (Double) obj2 + " = ");
 			return (Double) obj1 * (Double) obj2;
 		} else if ((inst instanceof DDIV && obj1 instanceof Double && obj2 instanceof Double))
 		{
+			//System.out.println("1st: " + (Double) obj1 + " and " + (Double) obj2 + " = ");
 			return (Double) obj1 / (Double) obj2;
 		}
 
@@ -136,6 +168,7 @@ public class ConstantFolder
 
 				if (obj1.getClass().equals(obj2.getClass())) {
 					Number result = performOperation(obj1, obj2, ih.getInstruction());
+					//System.out.println("result = " + result + "\n");
 					returned = replaceInstructions(instructionList, ih, prev1, prev2, result, cpgen);
 				}
 			}
