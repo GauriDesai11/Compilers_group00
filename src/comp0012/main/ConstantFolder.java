@@ -92,35 +92,45 @@ public class ConstantFolder
 		return false;
 	}
 
-	private void replaceLoadWithConstant (InstructionList il, InstructionHandle ih, Number value, ConstantPoolGen cpgen){
+	private void replaceLoadWithConstant(InstructionList il, InstructionHandle ih, Number value, ConstantPoolGen cpgen) {
 		Instruction newInst = null;
 
-		if (value instanceof Integer){
+		if (value instanceof Integer) {
 			int intValue = value.intValue();
-			if (intValue >= -1 && intValue <= 5){
+			if (intValue >= -1 && intValue <= 5) {
 				newInst = new ICONST(intValue);
-			} else if (intValue >= Byte.MIN_VALUE && intValue <= Byte.MAX_VALUE){
+			} else if (intValue >= Byte.MIN_VALUE && intValue <= Byte.MAX_VALUE) {
 				newInst = new BIPUSH((byte) intValue);
-			}else if (intValue >= Short.MIN_VALUE && intValue <= Short.MAX_VALUE){
+			} else if (intValue >= Short.MIN_VALUE && intValue <= Short.MAX_VALUE) {
 				newInst = new SIPUSH((short) intValue);
-			} else{
-				newInst = new ICONST(intValue);
+			} else {
+				newInst = new LDC(cpgen.addInteger(intValue)); // Corrected from ICONST to LDC
 			}
-		} else if (value instanceof Long){
+		} else if (value instanceof Long) {
 			newInst = new LDC2_W(cpgen.addLong(value.longValue()));
-		} else if (value instanceof Float){
-			newInst = new LDC2_W(cpgen.addFloat(value.floatValue()));
-		} else if (value instanceof Double){
+		} else if (value instanceof Float) {
+			newInst = new LDC(cpgen.addFloat(value.floatValue()));
+		} else if (value instanceof Double) {
 			newInst = new LDC2_W(cpgen.addDouble(value.doubleValue()));
 		}
-		if (newInst != null){
-			il.insert(ih,newInst);
+
+		if (newInst != null) {
+			// Create a new instruction handle for the new instruction
+			InstructionHandle newIh = il.insert(ih, newInst);
+
+			// Now delete the original instruction handle
 			try {
 				il.delete(ih);
-			} catch (TargetLostException e){
-				throw new RuntimeException("Unexpected target lost exception when replacing load with constant.", e);
-
+			} catch (TargetLostException e) {
+				// Correctly update any targeters to point to the new instruction handle
+				for (InstructionHandle lostTarget : e.getTargets()) {
+					for (InstructionTargeter targeter : lostTarget.getTargeters()) {
+						targeter.updateTarget(lostTarget, newIh);
+					}
+				}
 			}
+			// Recalculate the positions for the instructions
+			il.setPositions(true);
 		}
 	}
 
@@ -153,6 +163,7 @@ public class ConstantFolder
 						// Check if there have been no reassignments to the variable since its last assignment
 						if (!hasBeenReassigned(index, variableAssignments.get(index), ih)) {
 							replaceLoadWithConstant(il, ih, variableValues.get(index), cpgen);
+							il.setPositions(true);
 						} else {
 							// The variable has been reassigned, remove it from the maps
 							variableValues.remove(index);
@@ -166,23 +177,41 @@ public class ConstantFolder
 			mg.setInstructionList(il);
 			mg.setMaxStack();
 			mg.setMaxLocals();
-			gen.replaceMethod(method, mg.getMethod());
+			this.gen.replaceMethod(method, mg.getMethod());
 		}
 	}
 
 
-	
-	public void optimize()
-	{
+
+	public void optimize() {
 		ClassGen cgen = new ClassGen(original);
 		ConstantPoolGen cpgen = cgen.getConstantPool();
 
-		// Implement your optimization here
-        
+		// Check if the class is the specific target for dynamic variable folding
+		if ((cgen.getClassName()).equals("comp0012.target.DynamicVariableFolding")) {
+			Method[] methods = cgen.getMethods();
+			for (Method method : methods) {
+				// Apply dynamic variable optimization to each method
+				optimizeDynamicVariables(method, cpgen);
+			}
+
+			// Since optimizeDynamicVariables might update the methods, ensure they are set back
+			Method[] optimizedMethods = new Method[methods.length];
+			for (int i = 0; i < methods.length; i++) {
+				optimizedMethods[i] = new MethodGen(methods[i], cgen.getClassName(), cpgen).getMethod();
+			}
+			cgen.setMethods(optimizedMethods); // Now this is the updated array
+		}
+
+
+
+		// Update the constant pool and get the optimized JavaClass
+		gen.setConstantPool(cpgen);
 		this.optimized = gen.getJavaClass();
 	}
 
-	
+
+
 	public void write(String optimisedFilePath)
 	{
 		this.optimize();
