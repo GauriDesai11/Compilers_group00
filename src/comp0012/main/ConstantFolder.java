@@ -31,6 +31,8 @@ public class ConstantFolder
 
 	public class Result
 	{
+		//helps return the instruction list and the ConstantPoolGen after editing them
+		// in each function
 		private InstructionList default_il;
 		private ConstantPoolGen default_cpgen;
 	}
@@ -40,6 +42,7 @@ public class ConstantFolder
 		int index = 0;
 		if (prev1.getInstruction() instanceof LDC)
 		{
+			//specific for integer and float values
 			Object obj1 = ((LDC) prev1.getInstruction()).getValue(cpg);
 			if (obj1 instanceof Integer)
 			{
@@ -53,6 +56,7 @@ public class ConstantFolder
 
 		} else if (prev1.getInstruction() instanceof LDC2_W)
 		{
+			//specific for long and double values
 			Object obj1 = ((LDC2_W) prev1.getInstruction()).getValue(cpg);
 			if (obj1 instanceof Long)
 			{
@@ -67,7 +71,7 @@ public class ConstantFolder
 		}
 
 
-
+		//delete the instructions after adding the correct ones before
 		try {
 			il.delete(ih);
 			il.delete(prev1);
@@ -79,11 +83,13 @@ public class ConstantFolder
 		toReturn.default_il = il;
 		toReturn.default_cpgen = cpg;
 
-		return toReturn;
+		return toReturn; //return the updated instruction list and the ConstantPoolGen
 	}
 
 	private Number performOperation(Object obj1, Object obj2, Instruction inst)
 	{
+		//for subtraction -- obj2 (prev prev instruction) - obj1 (prev instruction)
+		//for division --> obj2 / obj1
 
 		//Integers
 		if (inst instanceof IADD && obj1 instanceof Integer && obj2 instanceof Integer) {
@@ -164,6 +170,7 @@ public class ConstantFolder
 
 	public Result handleArithmetic(InstructionHandle ih, InstructionList instructionList, ConstantPoolGen cpgen)
 	{
+
 		Result returned = new Result();
 		returned.default_il = instructionList;
 		returned.default_cpgen = cpgen;
@@ -174,6 +181,7 @@ public class ConstantFolder
 			Instruction prevInst1 = prev1.getInstruction();
 			Instruction prevInst2 = prev2.getInstruction();
 
+			//get the value being loaded by checking if it is LDC or LDC2_W
 			if (prevInst1 instanceof LDC && prevInst2 instanceof LDC) {
 				Object obj1 = ((LDC) prevInst1).getValue(cpgen);
 				Object obj2 = ((LDC) prevInst2).getValue(cpgen);
@@ -182,6 +190,7 @@ public class ConstantFolder
 					Number result = performOperation(obj1, obj2, ih.getInstruction());
 					//System.out.println("result = " + result + "\n");
 					returned = replaceInstructions(instructionList, ih, prev1, prev2, result, cpgen);
+
 				}
 			} else if (prevInst1 instanceof LDC2_W && prevInst2 instanceof LDC2_W)
 			{
@@ -192,9 +201,12 @@ public class ConstantFolder
 					Number result = performOperation(obj1, obj2, ih.getInstruction());
 					//System.out.println("result = " + result + "\n");
 					returned = replaceInstructions(instructionList, ih, prev1, prev2, result, cpgen);
+
 				}
 			}
 		}
+
+		//'returned' = updated instruction list and the ConstantPoolGen after editing them
 		return returned;
 	}
 
@@ -222,12 +234,14 @@ public class ConstantFolder
 					}
 				}
 
+				//'returned' = updated instruction list and the ConstantPoolGen after editing them
 				methodGen.setInstructionList(returned.default_il);
 				methodGen.setMaxStack(); //stack frame size needs to be correctly calculated and set
 				methodGen.setMaxLocals();
 				gen.replaceMethod(method, methodGen.getMethod()); //'method' = original method --> replace this with the new method with the updated InstructionList
 			}
 		}
+		//only need to return the ConstantPoolGen since gen's method has been replaced/ updated
 		return returned.default_cpgen;
 	}
 
