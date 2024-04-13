@@ -235,91 +235,169 @@ public class ConstantFolder
 		return returned.default_cpgen;
 	}
 
+	// private Map<Integer, Number> findConstantVariables(Method method, ConstantPoolGen cpgen) {
+	// 	Map<Integer, Number> constantVariables = new HashMap<>();
+	// 	Set<Integer> modifiedVariables = new HashSet<>();
+
+	// 	InstructionList il = new InstructionList(method.getCode().getCode());
+	// 	MethodGen mgen = new MethodGen(
+	// 		method.getAccessFlags(),
+	// 		method.getReturnType(),
+	// 		method.getArgumentTypes(),
+	// 		null,
+	// 		method.getName(),
+	// 		gen.getClassName(),
+	// 		il,
+	// 		cpgen
+	// 	);
+
+	// 	for (InstructionHandle ih : il.getInstructionHandles()) {
+	// 		Instruction inst = ih.getInstruction();
+	// 		if (inst instanceof StoreInstruction) {
+	// 			StoreInstruction store = (StoreInstruction) inst;
+	// 			if (!modifiedVariables.contains(store.getIndex())) {
+	// 				InstructionHandle prevIh = ih.getPrev();
+	// 				System.out.println(prevIh);
+	// 				if (prevIh != null && (prevIh.getInstruction() instanceof LDC || 
+	// 									   prevIh.getInstruction() instanceof LDC2_W ||
+	// 									   prevIh.getInstruction() instanceof SIPUSH ||
+	// 									   prevIh.getInstruction() instanceof BIPUSH)) {
+	// 									//    prevIh.getInstruction() instanceof BIPUSH ||
+	// 									//    prevIh.getInstruction() instanceof SIPUSH ||
+	// 									//    prevIh.getInstruction() instanceof ICONST ||
+	// 									//    prevIh.getInstruction() instanceof FCONST ||
+	// 									//    prevIh.getInstruction() instanceof DCONST ||
+	// 									//    prevIh.getInstruction() instanceof LCONST)) {
+	// 					Number value = getConstantValueFromInstruction(prevIh.getInstruction(), cpgen);
+	// 					if (value != null) {
+	// 						constantVariables.put(store.getIndex(), value);
+	// 						System.out.println("Constant variable found: Index = " + store.getIndex() + ", Value = " + value);
+	// 					}
+	// 				}
+	// 			}
+	// 		} else if (inst instanceof LoadInstruction) {
+	// 			LoadInstruction load = (LoadInstruction) inst;
+	// 			modifiedVariables.add(load.getIndex());
+	// 		}
+	// 	}
+
+	// 	// for (InstructionHandle ih : il.getInstructionHandles()) {
+	// 	// 	Instruction inst = ih.getInstruction();
+	// 	// 	if (inst instanceof StoreInstruction) {
+	// 	// 		StoreInstruction store = (StoreInstruction) inst;
+	// 	// 		// If it's already in constantVariables but now being modified, remove it
+	// 	// 		if (constantVariables.containsKey(store.getIndex())) {
+	// 	// 			constantVariables.remove(store.getIndex());
+	// 	// 			modifiedVariables.add(store.getIndex());
+	// 	// 		}
+	// 	// 		// If it's not marked modified yet, check if it should be added
+	// 	// 		else if (!modifiedVariables.contains(store.getIndex())) {
+	// 	// 			InstructionHandle prevIh = ih.getPrev();
+	// 	// 			if (prevIh != null && isConstantValueInstruction(prevIh.getInstruction(), cpgen)) {
+	// 	// 				Number value = getConstantValueFromInstruction(prevIh.getInstruction(), cpgen);
+	// 	// 				constantVariables.put(store.getIndex(), value);
+	// 	// 			}
+	// 	// 		}
+	// 	// 	}
+	// 	// }
+	// 	return constantVariables;
+	// }
+
 	private Map<Integer, Number> findConstantVariables(Method method, ConstantPoolGen cpgen) {
 		Map<Integer, Number> constantVariables = new HashMap<>();
-		Set<Integer> modifiedVariables = new HashSet<>();
+		Set<Integer> modifiedVariables = new HashSet<>(); // Track all variable indices that are modified
+		
+		Code methodCode = method.getCode();
 
-		InstructionList il = new InstructionList(method.getCode().getCode());
-		MethodGen mgen = new MethodGen(
-			method.getAccessFlags(),
-			method.getReturnType(),
-			method.getArgumentTypes(),
-			null,
-			method.getName(),
-			gen.getClassName(),
-			il,
-			cpgen
-		);
+		if (methodCode.getCode() == null) {
+			System.out.println("No code in method: " + method.getName());
+			return constantVariables;
+		}
+		
+		InstructionList il = new InstructionList(methodCode.getCode());
+		MethodGen mgen = new MethodGen(method, gen.getClassName(), cpgen);
 
 		for (InstructionHandle ih : il.getInstructionHandles()) {
 			Instruction inst = ih.getInstruction();
+
+			// if (inst instanceof StoreInstruction) {
+            //     StoreInstruction store = (StoreInstruction) inst;
+            //     if (ih.getPrev() != null && ih.getPrev().getInstruction() instanceof PushInstruction) {
+            //         PushInstruction push = (PushInstruction) ih.getPrev().getInstruction();
+            //         if (push instanceof ConstantPushInstruction) {
+            //             ConstantPushInstruction constPush = (ConstantPushInstruction) push;
+            //             constantVariables.put(store.getIndex(), constPush.getValue().intValue());
+            //         }
+            //     }
+            // } else if (inst instanceof LoadInstruction) {
+            //     LoadInstruction load = (LoadInstruction) inst;
+            //     if (constantVariables.containsKey(load.getIndex())) {
+            //         int constValue = constantVariables.get(load.getIndex());
+            //         InstructionList newInstList = new InstructionList();
+            //         newInstList.append(new LDC(cpgen.addInteger(constValue)));
+            //         try {
+            //             il.insert(ih, newInstList);
+            //             il.delete(ih);
+            //         } catch (TargetLostException e) {
+            //             for (InstructionHandle target : e.getTargets()) {
+            //                 target.updateTarget(ih, ih.getNext());
+            //             }
+            //         }
+            //     }
+            // }
+
 			if (inst instanceof StoreInstruction) {
 				StoreInstruction store = (StoreInstruction) inst;
-				if (!modifiedVariables.contains(store.getIndex())) {
+				int index = store.getIndex();
+				
+				// Check if the variable has not been modified previously
+				if (!modifiedVariables.contains(index)) {
 					InstructionHandle prevIh = ih.getPrev();
-					System.out.println(prevIh);
-					if (prevIh != null && (prevIh.getInstruction() instanceof LDC || 
-										   prevIh.getInstruction() instanceof LDC2_W ||
-										   prevIh.getInstruction() instanceof SIPUSH ||
-										   prevIh.getInstruction() instanceof BIPUSH)) {
-										//    prevIh.getInstruction() instanceof BIPUSH ||
-										//    prevIh.getInstruction() instanceof SIPUSH ||
-										//    prevIh.getInstruction() instanceof ICONST ||
-										//    prevIh.getInstruction() instanceof FCONST ||
-										//    prevIh.getInstruction() instanceof DCONST ||
-										//    prevIh.getInstruction() instanceof LCONST)) {
-						Number value = getConstantValueFromInstruction(prevIh.getInstruction(), cpgen);
-						if (value != null) {
-							constantVariables.put(store.getIndex(), value);
-							System.out.println("Constant variable found: Index = " + store.getIndex() + ", Value = " + value);
+					if (prevIh != null) {
+						Instruction prevInst = prevIh.getInstruction();
+						Number constantValue = getConstantValueFromInstruction(prevInst, cpgen);
+
+						if (constantValue != null) {
+							constantVariables.put(index, constantValue);
+							System.out.println("Constant variable found: Index = " + index + ", Value = " + constantValue);
 						}
 					}
 				}
-			} else if (inst instanceof LoadInstruction) {
-				LoadInstruction load = (LoadInstruction) inst;
-				modifiedVariables.add(load.getIndex());
+			} else {
+				// If any instruction that can modify a variable is encountered, track the variable index
+				if (inst instanceof LoadInstruction || inst instanceof IINC || inst instanceof ArithmeticInstruction) {
+					int index = getIndexFromInstruction(inst);
+					if (index >= 0) {
+						modifiedVariables.add(index);
+					}
+				}
 			}
 		}
 
-		// for (InstructionHandle ih : il.getInstructionHandles()) {
-		// 	Instruction inst = ih.getInstruction();
-		// 	if (inst instanceof StoreInstruction) {
-		// 		StoreInstruction store = (StoreInstruction) inst;
-		// 		// If it's already in constantVariables but now being modified, remove it
-		// 		if (constantVariables.containsKey(store.getIndex())) {
-		// 			constantVariables.remove(store.getIndex());
-		// 			modifiedVariables.add(store.getIndex());
-		// 		}
-		// 		// If it's not marked modified yet, check if it should be added
-		// 		else if (!modifiedVariables.contains(store.getIndex())) {
-		// 			InstructionHandle prevIh = ih.getPrev();
-		// 			if (prevIh != null && isConstantValueInstruction(prevIh.getInstruction(), cpgen)) {
-		// 				Number value = getConstantValueFromInstruction(prevIh.getInstruction(), cpgen);
-		// 				constantVariables.put(store.getIndex(), value);
-		// 			}
-		// 		}
-		// 	}
-		// }
+		constantVariables.keySet().removeAll(modifiedVariables);
+    	constantVariables.keySet().removeIf(modifiedVariables::contains);
 		return constantVariables;
 	}
 
-	private boolean isConstantValueInstruction(Instruction inst, ConstantPoolGen cpgen) {
-		return inst instanceof LDC || inst instanceof LDC2_W ||
-			inst instanceof BIPUSH || inst instanceof SIPUSH ||
-			inst instanceof ICONST || inst instanceof FCONST ||
-			inst instanceof DCONST || inst instanceof LCONST;
+	private Number getConstantValueFromInstruction(Instruction inst, ConstantPoolGen cpgen) {
+		if (inst instanceof LDC) return (Number) ((LDC) inst).getValue(cpgen);
+		if (inst instanceof LDC2_W) return (Number) ((LDC2_W) inst).getValue(cpgen);
+		if (inst instanceof BIPUSH) return ((BIPUSH) inst).getValue();
+		if (inst instanceof SIPUSH) return ((SIPUSH) inst).getValue();
+		if (inst instanceof ICONST) return ((ICONST) inst).getValue();
+		if (inst instanceof FCONST) return ((FCONST) inst).getValue();
+		if (inst instanceof DCONST) return ((DCONST) inst).getValue();
+		if (inst instanceof LCONST) return ((LCONST) inst).getValue();
+		return null; // Return null if the instruction does not yield a constant
 	}
 
-	private Number getConstantValueFromInstruction(Instruction inst, ConstantPoolGen cpgen) {
-		if (inst instanceof LDC) return (Number)((LDC)inst).getValue(cpgen);
-		if (inst instanceof LDC2_W) return (Number)((LDC2_W)inst).getValue(cpgen);
-		if (inst instanceof BIPUSH) return ((BIPUSH)inst).getValue();
-		if (inst instanceof SIPUSH) return ((SIPUSH)inst).getValue();
-		if (inst instanceof ICONST) return ((ICONST)inst).getValue();
-		if (inst instanceof FCONST) return ((FCONST)inst).getValue();
-		if (inst instanceof DCONST) return ((DCONST)inst).getValue();
-		if (inst instanceof LCONST) return ((LCONST)inst).getValue();
-		return null;
+	private int getIndexFromInstruction(Instruction inst) {
+		if (inst instanceof LocalVariableInstruction) {
+			return ((LocalVariableInstruction) inst).getIndex();
+		} else if (inst instanceof IINC) {
+			return ((IINC) inst).getIndex();
+		}
+		return -1; // Return -1 if no valid index is found
 	}
 
 	private void replaceConstantVariableLoads(Method method, Map<Integer, Number> constants, ConstantPoolGen cpgen) {
