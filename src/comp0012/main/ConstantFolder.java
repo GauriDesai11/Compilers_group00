@@ -3,20 +3,13 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.Map;
 
-import org.apache.bcel.classfile.ClassParser;
-import org.apache.bcel.classfile.Code;
-import org.apache.bcel.classfile.JavaClass;
-import org.apache.bcel.classfile.Method;
-import org.apache.bcel.generic.ClassGen;
-import org.apache.bcel.generic.ConstantPoolGen;
-import org.apache.bcel.generic.InstructionHandle;
-import org.apache.bcel.generic.InstructionList;
+import org.apache.bcel.classfile.*;
+import org.apache.bcel.generic.*;
 import org.apache.bcel.util.InstructionFinder;
-import org.apache.bcel.generic.MethodGen;
-import org.apache.bcel.generic.TargetLostException;
-
 
 
 public class ConstantFolder
@@ -37,6 +30,147 @@ public class ConstantFolder
 			e.printStackTrace();
 		}
 	}
+
+	private boolean isConstantPush(Instruction inst){
+		return inst instanceof LDC || inst instanceof LDC2_W
+				|| inst instanceof ICONST || inst instanceof  BIPUSH
+				|| inst instanceof SIPUSH;
+	}
+
+
+	private Number getConstantValue(InstructionHandle ih, ConstantPoolGen cpgen) {
+		Instruction inst = ih.getInstruction();
+
+		// Check for the LDC instruction which loads constants from the constant pool
+		if (inst instanceof LDC) {
+			LDC ldc = (LDC) inst;
+			Object value = ldc.getValue(cpgen);
+			if (value instanceof Number) {
+				return (Number) value;
+			}
+		}
+		// Check for the LDC2_W instruction which loads long and double constants from the constant pool
+		else if (inst instanceof LDC2_W) {
+			LDC2_W ldc2_w = (LDC2_W) inst;
+			Object value = ldc2_w.getValue(cpgen);
+			if (value instanceof Number) {
+				return (Number) value;
+			}
+		}
+		// Check for the BIPUSH instruction which pushes a byte constant onto the stack
+		else if (inst instanceof BIPUSH) {
+			BIPUSH bipush = (BIPUSH) inst;
+			return Integer.valueOf(bipush.getValue().intValue());
+		}
+		// Check for the SIPUSH instruction which pushes a short constant onto the stack
+		else if (inst instanceof SIPUSH) {
+			SIPUSH sipush = (SIPUSH) inst;
+			return Integer.valueOf(sipush.getValue().intValue());
+		}
+		// Check for ICONST_* instructions which push various int constants onto the stack
+		else if (inst instanceof ICONST) {
+			ICONST iconst = (ICONST) inst;
+			return Integer.valueOf(iconst.getValue().intValue());
+		}
+
+		// None of the above, return null indicating the instruction does not push a constant number.
+		return null;
+	}
+
+	private boolean hasBeenReassigned(int index, InstructionHandle start, InstructionHandle end){
+		InstructionHandle current = start;
+		while (current != null && current != end){
+			Instruction inst = current.getInstruction();
+			if (inst instanceof StoreInstruction){
+				StoreInstruction store = (StoreInstruction) inst;
+				if (store.getIndex() == index){
+					return true;
+				}
+			}
+			current = current.getNext();
+		}
+		return false;
+	}
+
+	private void replaceLoadWithConstant (InstructionList il, InstructionHandle ih, Number value, ConstantPoolGen cpgen){
+		Instruction newInst = null;
+
+		if (value instanceof Integer){
+			int intValue = value.intValue();
+			if (intValue >= -1 && intValue <= 5){
+				newInst = new ICONST(intValue);
+			} else if (intValue >= Byte.MIN_VALUE && intValue <= Byte.MAX_VALUE){
+				newInst = new BIPUSH((byte) intValue);
+			}else if (intValue >= Short.MIN_VALUE && intValue <= Short.MAX_VALUE){
+				newInst = new SIPUSH((short) intValue);
+			} else{
+				newInst = new ICONST(intValue);
+			}
+		} else if (value instanceof Long){
+			newInst = new LDC2_W(cpgen.addLong(value.longValue()));
+		} else if (value instanceof Float){
+			newInst = new LDC2_W(cpgen.addFloat(value.floatValue()));
+		} else if (value instanceof Double){
+			newInst = new LDC2_W(cpgen.addDouble(value.doubleValue()));
+		}
+		if (newInst != null){
+			il.insert(ih,newInst);
+			try {
+				il.delete(ih);
+			} catch (TargetLostException e){
+				throw new RuntimeException("Unexpected target lost exception when replacing load with constant.", e);
+
+			}
+		}
+	}
+
+	public void optimizeDynamicVariables(Method method, ConstantPoolGen cpgen) {
+		MethodGen mg = new MethodGen(method, gen.getClassName(), cpgen);
+		InstructionList il = mg.getInstructionList();
+
+		// Maps to hold the current constant value and last assignment handle for each variable index
+		Map<Integer, Number> variableValues = new HashMap<>();
+		Map<Integer, InstructionHandle> variableAssignments = new HashMap<>();
+
+		if (il != null) {
+			for (InstructionHandle ih : il.getInstructionHandles()) {
+				Instruction inst = ih.getInstruction();
+
+				if (inst instanceof StoreInstruction) {
+					StoreInstruction store = (StoreInstruction) inst;
+					if (isConstantPush(ih.getPrev().getInstruction())) {
+						Number value = getConstantValue(ih.getPrev(), cpgen);
+						if (value != null) {
+							// Record the constant value and the location of the assignment
+							variableValues.put(store.getIndex(), value);
+							variableAssignments.put(store.getIndex(), ih);
+						}
+					}
+				} else if (inst instanceof LoadInstruction) {
+					LoadInstruction load = (LoadInstruction) inst;
+					int index = load.getIndex();
+					if (variableValues.containsKey(index)) {
+						// Check if there have been no reassignments to the variable since its last assignment
+						if (!hasBeenReassigned(index, variableAssignments.get(index), ih)) {
+							replaceLoadWithConstant(il, ih, variableValues.get(index), cpgen);
+						} else {
+							// The variable has been reassigned, remove it from the maps
+							variableValues.remove(index);
+							variableAssignments.remove(index);
+						}
+					}
+				} // No else needed here, as the above condition covers the case
+			}
+
+			// Apply changes to the method
+			mg.setInstructionList(il);
+			mg.setMaxStack();
+			mg.setMaxLocals();
+			gen.replaceMethod(method, mg.getMethod());
+		}
+	}
+
+
 	
 	public void optimize()
 	{
