@@ -138,6 +138,12 @@ public class ConstantFolder
 		MethodGen mg = new MethodGen(method, gen.getClassName(), cpgen);
 		InstructionList il = mg.getInstructionList();
 
+		System.out.println("\n\nbefore optimisation: ");
+		for (InstructionHandle hl : il.getInstructionHandles()) {
+			System.out.println(hl.getInstruction());
+		}
+		System.out.println("\n");
+
 		// Maps to hold the current constant value and last assignment handle for each variable index
 		Map<Integer, Number> variableValues = new HashMap<>();
 		Map<Integer, InstructionHandle> variableAssignments = new HashMap<>();
@@ -147,9 +153,16 @@ public class ConstantFolder
 				Instruction inst = ih.getInstruction();
 
 				if (inst instanceof StoreInstruction) {
+
+					System.out.println("store instruction: ");
+					System.out.println(inst + "\n");
+
 					StoreInstruction store = (StoreInstruction) inst;
 					if (isConstantPush(ih.getPrev().getInstruction())) {
 						Number value = getConstantValue(ih.getPrev(), cpgen);
+
+						System.out.println("result value = " + value);
+
 						if (value != null) {
 							// Record the constant value and the location of the assignment
 							variableValues.put(store.getIndex(), value);
@@ -157,12 +170,16 @@ public class ConstantFolder
 						}
 					}
 				} else if (inst instanceof LoadInstruction) {
+					System.out.println("load instruction: ");
+					System.out.println(inst + "\n");
+
 					LoadInstruction load = (LoadInstruction) inst;
 					int index = load.getIndex();
 					if (variableValues.containsKey(index)) {
 						// Check if there have been no reassignments to the variable since its last assignment
 						if (!hasBeenReassigned(index, variableAssignments.get(index), ih)) {
 							replaceLoadWithConstant(il, ih, variableValues.get(index), cpgen);
+
 							il.setPositions(true);
 						} else {
 							// The variable has been reassigned, remove it from the maps
@@ -170,15 +187,32 @@ public class ConstantFolder
 							variableAssignments.remove(index);
 						}
 					}
-				} // No else needed here, as the above condition covers the case
+				}
+					// No else needed here, as the above condition covers the case
 			}
 
 			// Apply changes to the method
+			System.out.println("\nafter applying changes: ");
+			for (InstructionHandle newHandle : il.getInstructionHandles()) {
+				System.out.println(newHandle.getInstruction());
+			}
+			System.out.println("\n");
+
 			mg.setInstructionList(il);
 			mg.setMaxStack();
 			mg.setMaxLocals();
 			this.gen.replaceMethod(method, mg.getMethod());
+
 		}
+
+		/*
+		System.out.println("\n\noptimised this method: ");
+		InstructionList newList = mg.getInstructionList();
+		for (InstructionHandle newHandle : newList.getInstructionHandles()) {
+			System.out.println(newHandle.getInstruction());
+		}
+
+		 */
 	}
 
 
@@ -200,6 +234,7 @@ public class ConstantFolder
 			for (int i = 0; i < methods.length; i++) {
 				optimizedMethods[i] = new MethodGen(methods[i], cgen.getClassName(), cpgen).getMethod();
 			}
+
 			cgen.setMethods(optimizedMethods); // Now this is the updated array
 		}
 
