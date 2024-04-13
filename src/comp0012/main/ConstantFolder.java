@@ -3,9 +3,11 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 import org.apache.bcel.classfile.*;
 import org.apache.bcel.generic.*;
@@ -31,158 +33,360 @@ public class ConstantFolder
 		}
 	}
 
-	private boolean isConstantPush(Instruction inst){
-		return inst instanceof LDC || inst instanceof LDC2_W
-				|| inst instanceof ICONST || inst instanceof  BIPUSH
-				|| inst instanceof SIPUSH;
+	public class Result
+	{
+		private InstructionList default_il;
+		private ConstantPoolGen default_cpgen;
 	}
 
+	private Result replaceInstructions(InstructionList il, InstructionHandle ih, InstructionHandle prev1, InstructionHandle prev2, Number result, ConstantPoolGen cpg)
+	{
+		int index = 0;
+		if (prev1.getInstruction() instanceof LDC)
+		{
+			Object obj1 = ((LDC) prev1.getInstruction()).getValue(cpg);
+			if (obj1 instanceof Integer)
+			{
+				index = cpg.addInteger(result.intValue());
+			}else if (obj1 instanceof Float)
+			{
+				index = cpg.addFloat(result.floatValue());
+			}
 
-	private Number getConstantValue(InstructionHandle ih, ConstantPoolGen cpgen) {
-		Instruction inst = ih.getInstruction();
+			il.insert(ih, new LDC(index));
 
-		// Check for the LDC instruction which loads constants from the constant pool
-		if (inst instanceof LDC) {
-			LDC ldc = (LDC) inst;
-			Object value = ldc.getValue(cpgen);
-			if (value instanceof Number) {
-				return (Number) value;
+		} else if (prev1.getInstruction() instanceof LDC2_W)
+		{
+			Object obj1 = ((LDC2_W) prev1.getInstruction()).getValue(cpg);
+			if (obj1 instanceof Long)
+			{
+				//System.out.println("long value --> " + result.longValue() + "\n");
+				index = cpg.addLong(result.longValue());
+			}else if (obj1 instanceof Double)
+			{
+				index = cpg.addDouble(result.doubleValue());
+			}
+
+			il.insert(ih, new LDC2_W(index));
+		}
+
+
+
+		try {
+			il.delete(ih);
+			il.delete(prev1);
+			il.delete(prev2);
+		} catch (TargetLostException e) {
+			throw new RuntimeException(e);
+		}
+		Result toReturn = new Result();
+		toReturn.default_il = il;
+		toReturn.default_cpgen = cpg;
+
+		return toReturn;
+	}
+
+	private Number performOperation(Object obj1, Object obj2, Instruction inst)
+	{
+
+		//Integers
+		if (inst instanceof IADD && obj1 instanceof Integer && obj2 instanceof Integer) {
+			//System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
+			return (Integer) obj1 + (Integer) obj2;
+		} else if ((inst instanceof ISUB && obj1 instanceof Integer && obj2 instanceof Integer))
+		{
+			//System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
+			return (Integer) obj2 - (Integer) obj1;
+		} else if ((inst instanceof IMUL && obj1 instanceof Integer && obj2 instanceof Integer))
+		{
+			//System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
+			return (Integer) obj1 * (Integer) obj2;
+		} else if ((inst instanceof IDIV && obj1 instanceof Integer && obj2 instanceof Integer))
+		{
+			//System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
+			return (Integer) obj2 / (Integer) obj1;
+		}
+
+		//long
+		if (inst instanceof LADD && obj1 instanceof Long && obj2 instanceof Long) {
+			//System.out.println("1st: " + (Long) obj1 + " and " + (Long) obj2 + " = ");
+			return (Long) obj1 + (Long) obj2;
+		} else if ((inst instanceof LSUB && obj1 instanceof Long && obj2 instanceof Long))
+		{
+			//System.out.println("1st: " + obj2 + " - " + obj1 + " = " + ((Long) obj2 - (Long) obj1) + "\n");
+			return (Long) obj2 - (Long) obj1;
+		} else if ((inst instanceof LMUL && obj1 instanceof Long && obj2 instanceof Long))
+		{
+			//System.out.println("1st: " + (Long) obj1 + " and " + (Long) obj2 + " = ");
+			return (Long) obj1 * (Long) obj2;
+		} else if ((inst instanceof LDIV && obj1 instanceof Long && obj2 instanceof Long))
+		{
+			//System.out.println("1st: " + (Long) obj1 + " and " + (Long) obj2 + " = ");
+			return (Long) obj2 / (Long) obj1;
+		}
+
+		//float
+		if (inst instanceof FADD && obj1 instanceof Float && obj2 instanceof Float) {
+			//System.out.println("1st: " + (Float) obj1 + " and " + (Float) obj2 + " = ");
+			return (Float) obj1 + (Float) obj2;
+		} else if ((inst instanceof FSUB && obj1 instanceof Float && obj2 instanceof Float))
+		{
+			//System.out.println("1st: " + (Float) obj1 + " and " + (Float) obj2 + " = ");
+			return (Float) obj2 - (Float) obj1;
+		} else if ((inst instanceof FMUL && obj1 instanceof Float && obj2 instanceof Float))
+		{
+			//System.out.println("1st: " + (Float) obj1 + " and " + (Float) obj2 + " = ");
+			return (Float) obj1 * (Float) obj2;
+		} else if ((inst instanceof FDIV && obj1 instanceof Float && obj2 instanceof Float))
+		{
+			//System.out.println("1st: " + (Float) obj1 + " and " + (Float) obj2 + " = ");
+			return (Float) obj2 / (Float) obj1;
+		}
+
+		//double
+		if (inst instanceof DADD && obj1 instanceof Double && obj2 instanceof Double) {
+			//System.out.println("1st: " + (Double) obj1 + " and " + (Double) obj2 + " = ");
+			return (Double) obj1 + (Double) obj2;
+		} else if ((inst instanceof DSUB && obj1 instanceof Double && obj2 instanceof Double))
+		{
+			//System.out.println("1st: " + (Double) obj1 + " and " + (Double) obj2 + " = ");
+			return (Double) obj2 - (Double) obj1;
+		} else if ((inst instanceof DMUL && obj1 instanceof Double && obj2 instanceof Double))
+		{
+			//System.out.println("1st: " + (Double) obj1 + " and " + (Double) obj2 + " = ");
+			return (Double) obj1 * (Double) obj2;
+		} else if ((inst instanceof DDIV && obj1 instanceof Double && obj2 instanceof Double))
+		{
+			//System.out.println("1st: " + (Double) obj1 + " and " + (Double) obj2 + " = ");
+			return (Double) obj2 / (Double) obj1;
+		}
+
+
+		// Add more conditions for other types and operations (ISUB, IMUL, IDIV, etc.)
+		return 0;
+	}
+
+	public Result handleArithmetic(InstructionHandle ih, InstructionList instructionList, ConstantPoolGen cpgen)
+	{
+		Result returned = new Result();
+		returned.default_il = instructionList;
+		returned.default_cpgen = cpgen;
+
+		InstructionHandle prev1 = ih.getPrev();
+		InstructionHandle prev2 = prev1 != null ? prev1.getPrev() : null;
+		if (prev1 != null && prev2 != null) {
+			Instruction prevInst1 = prev1.getInstruction();
+			Instruction prevInst2 = prev2.getInstruction();
+
+			if (prevInst1 instanceof LDC && prevInst2 instanceof LDC) {
+				Object obj1 = ((LDC) prevInst1).getValue(cpgen);
+				Object obj2 = ((LDC) prevInst2).getValue(cpgen);
+
+				if (obj1.getClass().equals(obj2.getClass())) {
+					Number result = performOperation(obj1, obj2, ih.getInstruction());
+					//System.out.println("result = " + result + "\n");
+					returned = replaceInstructions(instructionList, ih, prev1, prev2, result, cpgen);
+				}
+			} else if (prevInst1 instanceof LDC2_W && prevInst2 instanceof LDC2_W)
+			{
+				Object obj1 = ((LDC2_W) prevInst1).getValue(cpgen);
+				Object obj2 = ((LDC2_W) prevInst2).getValue(cpgen);
+
+				if (obj1.getClass().equals(obj2.getClass())) {
+					Number result = performOperation(obj1, obj2, ih.getInstruction());
+					//System.out.println("result = " + result + "\n");
+					returned = replaceInstructions(instructionList, ih, prev1, prev2, result, cpgen);
+				}
 			}
 		}
-		// Check for the LDC2_W instruction which loads long and double constants from the constant pool
-		else if (inst instanceof LDC2_W) {
-			LDC2_W ldc2_w = (LDC2_W) inst;
-			Object value = ldc2_w.getValue(cpgen);
-			if (value instanceof Number) {
-				return (Number) value;
+		return returned;
+	}
+
+	public ConstantPoolGen SimpleFoldingOptimization(ConstantPoolGen cpgen)
+	{
+		Method[] methods = gen.getMethods();
+		Result returned = new Result();
+
+		for (Method method : methods) {
+
+			MethodGen methodGen = new MethodGen(method, gen.getClassName(), cpgen);
+			InstructionList instructionList = methodGen.getInstructionList();
+
+			returned.default_il = instructionList;
+			returned.default_cpgen = cpgen;
+
+			if (instructionList != null) {
+				for (InstructionHandle ih : instructionList.getInstructionHandles()) {
+
+					Instruction instruction = ih.getInstruction();
+
+					if (instruction instanceof ArithmeticInstruction)
+					{
+						returned = handleArithmetic(ih, instructionList, cpgen);
+					}
+				}
+
+				methodGen.setInstructionList(returned.default_il);
+				methodGen.setMaxStack(); //stack frame size needs to be correctly calculated and set
+				methodGen.setMaxLocals();
+				gen.replaceMethod(method, methodGen.getMethod()); //'method' = original method --> replace this with the new method with the updated InstructionList
 			}
 		}
-		// Check for the BIPUSH instruction which pushes a byte constant onto the stack
-		else if (inst instanceof BIPUSH) {
-			BIPUSH bipush = (BIPUSH) inst;
-			return Integer.valueOf(bipush.getValue().intValue());
-		}
-		// Check for the SIPUSH instruction which pushes a short constant onto the stack
-		else if (inst instanceof SIPUSH) {
-			SIPUSH sipush = (SIPUSH) inst;
-			return Integer.valueOf(sipush.getValue().intValue());
-		}
-		// Check for ICONST_* instructions which push various int constants onto the stack
-		else if (inst instanceof ICONST) {
-			ICONST iconst = (ICONST) inst;
-			return Integer.valueOf(iconst.getValue().intValue());
+		return returned.default_cpgen;
+	}
+
+	private Map<Integer, Number> findConstantVariables(Method method, ConstantPoolGen cpgen) {
+		Map<Integer, Number> constantVariables = new HashMap<>();
+		Set<Integer> modifiedVariables = new HashSet<>();
+
+		InstructionList il = new InstructionList(method.getCode().getCode());
+		MethodGen mgen = new MethodGen(
+			method.getAccessFlags(),
+			method.getReturnType(),
+			method.getArgumentTypes(),
+			null,
+			method.getName(),
+			gen.getClassName(),
+			il,
+			cpgen
+		);
+
+		for (InstructionHandle ih : il.getInstructionHandles()) {
+			Instruction inst = ih.getInstruction();
+			if (inst instanceof StoreInstruction) {
+				StoreInstruction store = (StoreInstruction) inst;
+				if (!modifiedVariables.contains(store.getIndex())) {
+					InstructionHandle prevIh = ih.getPrev();
+					System.out.println(prevIh);
+					if (prevIh != null && (prevIh.getInstruction() instanceof LDC || 
+										   prevIh.getInstruction() instanceof LDC2_W ||
+										   prevIh.getInstruction() instanceof SIPUSH ||
+										   prevIh.getInstruction() instanceof BIPUSH)) {
+										//    prevIh.getInstruction() instanceof BIPUSH ||
+										//    prevIh.getInstruction() instanceof SIPUSH ||
+										//    prevIh.getInstruction() instanceof ICONST ||
+										//    prevIh.getInstruction() instanceof FCONST ||
+										//    prevIh.getInstruction() instanceof DCONST ||
+										//    prevIh.getInstruction() instanceof LCONST)) {
+						Number value = getConstantValueFromInstruction(prevIh.getInstruction(), cpgen);
+						if (value != null) {
+							constantVariables.put(store.getIndex(), value);
+							System.out.println("Constant variable found: Index = " + store.getIndex() + ", Value = " + value);
+						}
+					}
+				}
+			} else if (inst instanceof LoadInstruction) {
+				LoadInstruction load = (LoadInstruction) inst;
+				modifiedVariables.add(load.getIndex());
+			}
 		}
 
-		// None of the above, return null indicating the instruction does not push a constant number.
+		// for (InstructionHandle ih : il.getInstructionHandles()) {
+		// 	Instruction inst = ih.getInstruction();
+		// 	if (inst instanceof StoreInstruction) {
+		// 		StoreInstruction store = (StoreInstruction) inst;
+		// 		// If it's already in constantVariables but now being modified, remove it
+		// 		if (constantVariables.containsKey(store.getIndex())) {
+		// 			constantVariables.remove(store.getIndex());
+		// 			modifiedVariables.add(store.getIndex());
+		// 		}
+		// 		// If it's not marked modified yet, check if it should be added
+		// 		else if (!modifiedVariables.contains(store.getIndex())) {
+		// 			InstructionHandle prevIh = ih.getPrev();
+		// 			if (prevIh != null && isConstantValueInstruction(prevIh.getInstruction(), cpgen)) {
+		// 				Number value = getConstantValueFromInstruction(prevIh.getInstruction(), cpgen);
+		// 				constantVariables.put(store.getIndex(), value);
+		// 			}
+		// 		}
+		// 	}
+		// }
+		return constantVariables;
+	}
+
+	private boolean isConstantValueInstruction(Instruction inst, ConstantPoolGen cpgen) {
+		return inst instanceof LDC || inst instanceof LDC2_W ||
+			inst instanceof BIPUSH || inst instanceof SIPUSH ||
+			inst instanceof ICONST || inst instanceof FCONST ||
+			inst instanceof DCONST || inst instanceof LCONST;
+	}
+
+	private Number getConstantValueFromInstruction(Instruction inst, ConstantPoolGen cpgen) {
+		if (inst instanceof LDC) return (Number)((LDC)inst).getValue(cpgen);
+		if (inst instanceof LDC2_W) return (Number)((LDC2_W)inst).getValue(cpgen);
+		if (inst instanceof BIPUSH) return ((BIPUSH)inst).getValue();
+		if (inst instanceof SIPUSH) return ((SIPUSH)inst).getValue();
+		if (inst instanceof ICONST) return ((ICONST)inst).getValue();
+		if (inst instanceof FCONST) return ((FCONST)inst).getValue();
+		if (inst instanceof DCONST) return ((DCONST)inst).getValue();
+		if (inst instanceof LCONST) return ((LCONST)inst).getValue();
 		return null;
 	}
 
-	private boolean hasBeenReassigned(int index, InstructionHandle start, InstructionHandle end){
-		InstructionHandle current = start;
-		while (current != null && current != end){
-			Instruction inst = current.getInstruction();
-			if (inst instanceof StoreInstruction){
-				StoreInstruction store = (StoreInstruction) inst;
-				if (store.getIndex() == index){
-					return true;
+	private void replaceConstantVariableLoads(Method method, Map<Integer, Number> constants, ConstantPoolGen cpgen) {
+		MethodGen mgen = new MethodGen(method, gen.getClassName(), cpgen);
+		InstructionList il = mgen.getInstructionList();
+		if (il == null) return;
+
+		for (InstructionHandle ih : il.getInstructionHandles()) {
+			Instruction inst = ih.getInstruction();
+			if (inst instanceof LoadInstruction) {
+				LoadInstruction load = (LoadInstruction) inst;
+				if (constants.containsKey(load.getIndex())) {
+					Number value = constants.get(load.getIndex());
+					Instruction newInst = null;
+					if (value instanceof Integer) {
+						newInst = new LDC(cpgen.addInteger(value.intValue()));
+					} else if (value instanceof Float) {
+						newInst = new LDC(cpgen.addFloat(value.floatValue()));
+					} else if (value instanceof Long) {
+						newInst = new LDC2_W(cpgen.addLong(value.longValue()));
+					} else if (value instanceof Double) {
+						newInst = new LDC2_W(cpgen.addDouble(value.doubleValue()));
+					}
+					System.out.println("Replacing variable load with constant: Variable Index = " + load.getIndex() + ", Value = " + value);
+					try {
+						il.insert(ih, newInst);
+						il.delete(ih);
+					} catch (TargetLostException e) {
+						for (InstructionHandle target : e.getTargets()) {
+							InstructionTargeter[] targeters = target.getTargeters();
+							for (InstructionTargeter t : targeters) {
+								t.updateTarget(target, null);
+							}
+						}
+					}
 				}
 			}
-			current = current.getNext();
 		}
-		return false;
+		mgen.setInstructionList(il);
+		mgen.setMaxStack();
+		mgen.setMaxLocals();
+		gen.replaceMethod(method, mgen.getMethod());
 	}
 
-	private void replaceLoadWithConstant (InstructionList il, InstructionHandle ih, Number value, ConstantPoolGen cpgen){
-		Instruction newInst = null;
-
-		if (value instanceof Integer){
-			int intValue = value.intValue();
-			if (intValue >= -1 && intValue <= 5){
-				newInst = new ICONST(intValue);
-			} else if (intValue >= Byte.MIN_VALUE && intValue <= Byte.MAX_VALUE){
-				newInst = new BIPUSH((byte) intValue);
-			}else if (intValue >= Short.MIN_VALUE && intValue <= Short.MAX_VALUE){
-				newInst = new SIPUSH((short) intValue);
-			} else{
-				newInst = new ICONST(intValue);
-			}
-		} else if (value instanceof Long){
-			newInst = new LDC2_W(cpgen.addLong(value.longValue()));
-		} else if (value instanceof Float){
-			newInst = new LDC2_W(cpgen.addFloat(value.floatValue()));
-		} else if (value instanceof Double){
-			newInst = new LDC2_W(cpgen.addDouble(value.doubleValue()));
-		}
-		if (newInst != null){
-			il.insert(ih,newInst);
-			try {
-				il.delete(ih);
-			} catch (TargetLostException e){
-				throw new RuntimeException("Unexpected target lost exception when replacing load with constant.", e);
-
-			}
-		}
-	}
-
-	public void optimizeDynamicVariables(Method method, ConstantPoolGen cpgen) {
-		MethodGen mg = new MethodGen(method, gen.getClassName(), cpgen);
-		InstructionList il = mg.getInstructionList();
-
-		// Maps to hold the current constant value and last assignment handle for each variable index
-		Map<Integer, Number> variableValues = new HashMap<>();
-		Map<Integer, InstructionHandle> variableAssignments = new HashMap<>();
-
-		if (il != null) {
-			for (InstructionHandle ih : il.getInstructionHandles()) {
-				Instruction inst = ih.getInstruction();
-
-				if (inst instanceof StoreInstruction) {
-					StoreInstruction store = (StoreInstruction) inst;
-					if (isConstantPush(ih.getPrev().getInstruction())) {
-						Number value = getConstantValue(ih.getPrev(), cpgen);
-						if (value != null) {
-							// Record the constant value and the location of the assignment
-							variableValues.put(store.getIndex(), value);
-							variableAssignments.put(store.getIndex(), ih);
-						}
-					}
-				} else if (inst instanceof LoadInstruction) {
-					LoadInstruction load = (LoadInstruction) inst;
-					int index = load.getIndex();
-					if (variableValues.containsKey(index)) {
-						// Check if there have been no reassignments to the variable since its last assignment
-						if (!hasBeenReassigned(index, variableAssignments.get(index), ih)) {
-							replaceLoadWithConstant(il, ih, variableValues.get(index), cpgen);
-						} else {
-							// The variable has been reassigned, remove it from the maps
-							variableValues.remove(index);
-							variableAssignments.remove(index);
-						}
-					}
-				} // No else needed here, as the above condition covers the case
-			}
-
-			// Apply changes to the method
-			mg.setInstructionList(il);
-			mg.setMaxStack();
-			mg.setMaxLocals();
-			gen.replaceMethod(method, mg.getMethod());
-		}
-	}
-
-
-	
 	public void optimize()
 	{
 		ClassGen cgen = new ClassGen(original);
 		ConstantPoolGen cpgen = cgen.getConstantPool();
 
 		// Implement your optimization here
-        
-		this.optimized = gen.getJavaClass();
+
+		if ((cgen.getClassName()).equals("comp0012.target.SimpleFolding"))
+		{
+			cpgen = SimpleFoldingOptimization(cpgen);
+		}
+
+		for (Method method : cgen.getMethods()) {
+			System.out.println("Processing method: " + method.getName());
+			Map<Integer, Number> constantVariables = findConstantVariables(method, cpgen);
+			replaceConstantVariableLoads(method, constantVariables, cpgen);
+		}
+
+		gen.setConstantPool(cpgen); //update the constant pool
+		this.optimized = gen.getJavaClass(); //line from the original code
 	}
 
-	
+
 	public void write(String optimisedFilePath)
 	{
 		this.optimize();
