@@ -254,6 +254,9 @@ public class ConstantFolder
 		for (InstructionHandle ih : il.getInstructionHandles()) {
 			Instruction inst = ih.getInstruction();
 			if (inst instanceof StoreInstruction) {
+        // System.out.println("\nfound a store value");
+        // System.out.println(inst + "\n");
+
 				StoreInstruction store = (StoreInstruction) inst;
 				if (!modifiedVariables.contains(store.getIndex())) {
 					InstructionHandle prevIh = ih.getPrev();
@@ -280,6 +283,10 @@ public class ConstantFolder
 				modifiedVariables.add(load.getIndex());
 			}
 		}
+
+    // remove modified variables
+    constantVariables.keySet().removeAll(modifiedVariables);
+    constantVariables.keySet().removeIf(modifiedVariables::contains);
 
 		// for (InstructionHandle ih : il.getInstructionHandles()) {
 		// 	Instruction inst = ih.getInstruction();
