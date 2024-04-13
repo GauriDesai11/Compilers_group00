@@ -33,13 +33,13 @@
 .end method
 
 
-.method public longAdd()V
+.method public longSub()V
 	.limit stack 5
 
 	getstatic java/lang/System/out Ljava/io/PrintStream;
 	ldc2_w 1000
 	ldc2_w 500
-    ladd
+    lsub
     invokevirtual java/io/PrintStream/println(J)V
 	return
 .end method
@@ -59,9 +59,9 @@
 	.limit stack 5
 
 	getstatic java/lang/System/out Ljava/io/PrintStream;
-	ldc2_w 4.0                                  
-	ldc2_w 20.0                                  
-	ddiv 
+	ldc2_w 4.0
+	ldc2_w 20.0
+	ddiv
     invokevirtual java/io/PrintStream/println(D)V
 	return
 .end method

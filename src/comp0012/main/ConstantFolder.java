@@ -56,6 +56,7 @@ public class ConstantFolder
 			Object obj1 = ((LDC2_W) prev1.getInstruction()).getValue(cpg);
 			if (obj1 instanceof Long)
 			{
+				//System.out.println("long value --> " + result.longValue() + "\n");
 				index = cpg.addLong(result.longValue());
 			}else if (obj1 instanceof Double)
 			{
@@ -64,8 +65,8 @@ public class ConstantFolder
 
 			il.insert(ih, new LDC2_W(index));
 		}
-	
-		
+
+
 
 		try {
 			il.delete(ih);
@@ -83,7 +84,7 @@ public class ConstantFolder
 
 	private Number performOperation(Object obj1, Object obj2, Instruction inst)
 	{
-		
+
 		//Integers
 		if (inst instanceof IADD && obj1 instanceof Integer && obj2 instanceof Integer) {
 			//System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
@@ -91,7 +92,7 @@ public class ConstantFolder
 		} else if ((inst instanceof ISUB && obj1 instanceof Integer && obj2 instanceof Integer))
 		{
 			//System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
-			return (Integer) obj1 - (Integer) obj2;
+			return (Integer) obj2 - (Integer) obj1;
 		} else if ((inst instanceof IMUL && obj1 instanceof Integer && obj2 instanceof Integer))
 		{
 			//System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
@@ -108,8 +109,8 @@ public class ConstantFolder
 			return (Long) obj1 + (Long) obj2;
 		} else if ((inst instanceof LSUB && obj1 instanceof Long && obj2 instanceof Long))
 		{
-			//System.out.println("1st: " + (Long) obj1 + " and " + (Long) obj2 + " = ");
-			return (Long) obj1 - (Long) obj2;
+			//System.out.println("1st: " + obj2 + " - " + obj1 + " = " + ((Long) obj2 - (Long) obj1) + "\n");
+			return (Long) obj2 - (Long) obj1;
 		} else if ((inst instanceof LMUL && obj1 instanceof Long && obj2 instanceof Long))
 		{
 			//System.out.println("1st: " + (Long) obj1 + " and " + (Long) obj2 + " = ");
@@ -127,7 +128,7 @@ public class ConstantFolder
 		} else if ((inst instanceof FSUB && obj1 instanceof Float && obj2 instanceof Float))
 		{
 			//System.out.println("1st: " + (Float) obj1 + " and " + (Float) obj2 + " = ");
-			return (Float) obj1 - (Float) obj2;
+			return (Float) obj2 - (Float) obj1;
 		} else if ((inst instanceof FMUL && obj1 instanceof Float && obj2 instanceof Float))
 		{
 			//System.out.println("1st: " + (Float) obj1 + " and " + (Float) obj2 + " = ");
@@ -145,7 +146,7 @@ public class ConstantFolder
 		} else if ((inst instanceof DSUB && obj1 instanceof Double && obj2 instanceof Double))
 		{
 			//System.out.println("1st: " + (Double) obj1 + " and " + (Double) obj2 + " = ");
-			return (Double) obj1 - (Double) obj2;
+			return (Double) obj2 - (Double) obj1;
 		} else if ((inst instanceof DMUL && obj1 instanceof Double && obj2 instanceof Double))
 		{
 			//System.out.println("1st: " + (Double) obj1 + " and " + (Double) obj2 + " = ");

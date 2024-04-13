@@ -14,15 +14,15 @@ import java.io.PrintStream;
 public class SimpleFoldingTest {
 
     SimpleFolding sf = new SimpleFolding();
-    
+
     private final ByteArrayOutputStream outContent = new ByteArrayOutputStream();
-    
+
     @Before
     public void setUpStreams()
     {
         System.setOut(new PrintStream(outContent));
     }
-    
+
     @After
     public void cleanUpStreams()
     {
@@ -35,27 +35,28 @@ public class SimpleFoldingTest {
         assertEquals("12412\n", outContent.toString());
     }
 
-    
+
+
     @Test
-    public void testLongAddition() {
-        sf.longAdd();
-        assertEquals("1500\n", outContent.toString());
+    public void testLongSubtraction() {
+        sf.longSub();
+        assertEquals("500\n", outContent.toString());
     }
-    
-    
+
+
     @Test
     public void testFloatMultiply() {
         sf.floatMul();
         assertEquals("50.0\n", outContent.toString());
     }
-    
-    
+
+
     @Test
     public void testFloatDivision() {
         sf.floatDiv();
         assertEquals("2.0\n", outContent.toString());
     }
-    
+
     @Test
     public void testDoubleDivision() {
         sf.doubleDiv();
