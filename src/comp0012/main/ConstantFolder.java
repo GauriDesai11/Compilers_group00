@@ -303,9 +303,58 @@ public class ConstantFolder
 	// 	return constantVariables;
 	// }
 
+	// private Map<Integer, Number> findConstantVariables(Method method, ConstantPoolGen cpgen) {
+	// 	Map<Integer, Number> constantVariables = new HashMap<>();
+	// 	Set<Integer> modifiedVariables = new HashSet<>(); // Track all variable indices that are modified
+		
+	// 	Code methodCode = method.getCode();
+
+	// 	if (methodCode.getCode() == null) {
+	// 		System.out.println("No code in method: " + method.getName());
+	// 		return constantVariables;
+	// 	}
+		
+	// 	InstructionList il = new InstructionList(methodCode.getCode());
+	// 	MethodGen mgen = new MethodGen(method, gen.getClassName(), cpgen);
+
+	// 	for (InstructionHandle ih : il.getInstructionHandles()) {
+	// 		Instruction inst = ih.getInstruction();
+	// 		if (inst instanceof StoreInstruction) {
+	// 			StoreInstruction store = (StoreInstruction) inst;
+	// 			int index = store.getIndex();
+				
+	// 			// Check if the variable has not been modified previously
+	// 			if (!modifiedVariables.contains(index)) {
+	// 				InstructionHandle prevIh = ih.getPrev();
+	// 				if (prevIh != null) {
+	// 					Instruction prevInst = prevIh.getInstruction();
+	// 					Number constantValue = getConstantValueFromInstruction(prevInst, cpgen);
+
+	// 					if (constantValue != null) {
+	// 						constantVariables.put(index, constantValue);
+	// 						System.out.println("Constant variable found: Index = " + index + ", Value = " + constantValue);
+	// 					}
+	// 				}
+	// 			}
+	// 		} else {
+	// 			// If any instruction that can modify a variable is encountered, track the variable index
+	// 			if (inst instanceof LoadInstruction || inst instanceof IINC || inst instanceof ArithmeticInstruction) {
+	// 				int index = getIndexFromInstruction(inst);
+	// 				if (index >= 0) {
+	// 					modifiedVariables.add(index);
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+
+	// 	constantVariables.keySet().removeAll(modifiedVariables);
+    // 	constantVariables.keySet().removeIf(modifiedVariables::contains);
+	// 	return constantVariables;
+	// }
+
 	private Map<Integer, Number> findConstantVariables(Method method, ConstantPoolGen cpgen) {
 		Map<Integer, Number> constantVariables = new HashMap<>();
-		Set<Integer> modifiedVariables = new HashSet<>(); // Track all variable indices that are modified
+		Set<Integer> modifiedVariables = new HashSet<>();  // Track all variable indices that are modified
 		
 		Code methodCode = method.getCode();
 
@@ -319,64 +368,58 @@ public class ConstantFolder
 
 		for (InstructionHandle ih : il.getInstructionHandles()) {
 			Instruction inst = ih.getInstruction();
-
-			// if (inst instanceof StoreInstruction) {
-            //     StoreInstruction store = (StoreInstruction) inst;
-            //     if (ih.getPrev() != null && ih.getPrev().getInstruction() instanceof PushInstruction) {
-            //         PushInstruction push = (PushInstruction) ih.getPrev().getInstruction();
-            //         if (push instanceof ConstantPushInstruction) {
-            //             ConstantPushInstruction constPush = (ConstantPushInstruction) push;
-            //             constantVariables.put(store.getIndex(), constPush.getValue().intValue());
-            //         }
-            //     }
-            // } else if (inst instanceof LoadInstruction) {
-            //     LoadInstruction load = (LoadInstruction) inst;
-            //     if (constantVariables.containsKey(load.getIndex())) {
-            //         int constValue = constantVariables.get(load.getIndex());
-            //         InstructionList newInstList = new InstructionList();
-            //         newInstList.append(new LDC(cpgen.addInteger(constValue)));
-            //         try {
-            //             il.insert(ih, newInstList);
-            //             il.delete(ih);
-            //         } catch (TargetLostException e) {
-            //             for (InstructionHandle target : e.getTargets()) {
-            //                 target.updateTarget(ih, ih.getNext());
-            //             }
-            //         }
-            //     }
-            // }
-
+			
 			if (inst instanceof StoreInstruction) {
 				StoreInstruction store = (StoreInstruction) inst;
 				int index = store.getIndex();
 				
-				// Check if the variable has not been modified previously
 				if (!modifiedVariables.contains(index)) {
 					InstructionHandle prevIh = ih.getPrev();
-					if (prevIh != null) {
-						Instruction prevInst = prevIh.getInstruction();
-						Number constantValue = getConstantValueFromInstruction(prevInst, cpgen);
-
+					if (prevIh != null && (prevIh.getInstruction() instanceof ArithmeticInstruction || isLoadConstantValueInstruction(prevIh.getInstruction()))) {
+						Number constantValue = evaluateExpression(prevIh, cpgen, constantVariables);
+						
 						if (constantValue != null) {
 							constantVariables.put(index, constantValue);
 							System.out.println("Constant variable found: Index = " + index + ", Value = " + constantValue);
 						}
 					}
 				}
-			} else {
-				// If any instruction that can modify a variable is encountered, track the variable index
-				if (inst instanceof LoadInstruction || inst instanceof IINC || inst instanceof ArithmeticInstruction) {
-					int index = getIndexFromInstruction(inst);
-					if (index >= 0) {
-						modifiedVariables.add(index);
-					}
-				}
+			} else if (modifiesVariable(inst)) {
+				int index = getIndexFromInstruction(inst);
+				modifiedVariables.add(index);
 			}
 		}
 
-		constantVariables.keySet().removeAll(modifiedVariables);
-    	constantVariables.keySet().removeIf(modifiedVariables::contains);
+		constantVariables.keySet().removeIf(modifiedVariables::contains);  // Ensure only unmodified indices are retained
 		return constantVariables;
+	}
+
+	private boolean isLoadConstantValueInstruction(Instruction instruction) {
+		return instruction instanceof LDC || instruction instanceof LDC2_W ||
+			instruction instanceof BIPUSH || instruction instanceof SIPUSH ||
+			instruction instanceof ICONST || instruction instanceof FCONST ||
+			instruction instanceof DCONST || instruction instanceof LCONST;
+	}
+
+	private Number evaluateExpression(InstructionHandle ih, ConstantPoolGen cpgen, Map<Integer, Number> constantVariables) {
+		Instruction inst = ih.getInstruction();
+		
+		if (inst instanceof ArithmeticInstruction && ih.getPrev() != null && ih.getPrev().getPrev() != null) {
+			InstructionHandle prev1 = ih.getPrev();
+			InstructionHandle prev2 = prev1.getPrev();
+			Number value1 = getConstantValueFromInstruction(prev1.getInstruction(), cpgen);
+			Number value2 = getConstantValueFromInstruction(prev2.getInstruction(), cpgen);
+			
+			if (value1 != null && value2 != null) {
+				System.out.println("Evaluating expression for possible constant folding.");
+				return performOperation(value1, value2, inst);
+			}
+		}
+		return getConstantValueFromInstruction(inst, cpgen);
+	}
+
+	private boolean modifiesVariable(Instruction inst) {
+		return inst instanceof LoadInstruction || inst instanceof IINC || inst instanceof ArithmeticInstruction || inst instanceof StoreInstruction;
 	}
 
 	private Number getConstantValueFromInstruction(Instruction inst, ConstantPoolGen cpgen) {
