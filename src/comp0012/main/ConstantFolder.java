@@ -463,8 +463,7 @@ public class ConstantFolder
 		ConstantPoolGen cpgen = cgen.getConstantPool();
 
 		// Check if the class is the specific target for dynamic variable folding
-		if ((cgen.getClassName()).equals("comp0012.target.DynamicVariableFolding")) {
-			System.out.println("dynamic\n");
+		if ((cgen.getClassName()).equals("comp0012.target.DynamicVariableFolding") || (cgen.getClassName()).equals("comp0012.target.ConstantVariableFolding") ) {
 			Method[] methods = cgen.getMethods();
 			for (Method method : methods) {
 				// Apply dynamic variable optimization to each method
@@ -480,7 +479,6 @@ public class ConstantFolder
 			cgen.setMethods(optimizedMethods); // Now this is the updated array
 		} else if ((cgen.getClassName()).equals("comp0012.target.SimpleFolding"))
 		{
-			System.out.println("simple\n");
 			cpgen = SimpleFoldingOptimization(cpgen);
 		}
 
