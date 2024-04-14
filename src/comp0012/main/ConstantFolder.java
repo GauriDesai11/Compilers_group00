@@ -138,11 +138,14 @@ public class ConstantFolder
 		MethodGen mg = new MethodGen(method, gen.getClassName(), cpgen);
 		InstructionList il = mg.getInstructionList();
 
+		/*
 		System.out.println("\n\nbefore optimisation: ");
 		for (InstructionHandle hl : il.getInstructionHandles()) {
 			System.out.println(hl.getInstruction());
 		}
 		System.out.println("\n");
+
+		 */
 
 		// Maps to hold the current constant value and last assignment handle for each variable index
 		Map<Integer, Number> variableValues = new HashMap<>();
@@ -154,14 +157,14 @@ public class ConstantFolder
 
 				if (inst instanceof StoreInstruction) {
 
-					System.out.println("store instruction: ");
-					System.out.println(inst + "\n");
+					//System.out.println("store instruction: ");
+					//System.out.println(inst + "\n");
 
 					StoreInstruction store = (StoreInstruction) inst;
 					if (isConstantPush(ih.getPrev().getInstruction())) {
 						Number value = getConstantValue(ih.getPrev(), cpgen);
 
-						System.out.println("result value = " + value);
+						//System.out.println("result value = " + value);
 
 						if (value != null) {
 							// Record the constant value and the location of the assignment
@@ -170,8 +173,8 @@ public class ConstantFolder
 						}
 					}
 				} else if (inst instanceof LoadInstruction) {
-					System.out.println("load instruction: ");
-					System.out.println(inst + "\n");
+					//System.out.println("load instruction: ");
+					//System.out.println(inst + "\n");
 
 					LoadInstruction load = (LoadInstruction) inst;
 					int index = load.getIndex();
@@ -192,11 +195,14 @@ public class ConstantFolder
 			}
 
 			// Apply changes to the method
+			/*
 			System.out.println("\nafter applying changes: ");
 			for (InstructionHandle newHandle : il.getInstructionHandles()) {
 				System.out.println(newHandle.getInstruction());
 			}
 			System.out.println("\n");
+
+			 */
 
 			mg.setInstructionList(il);
 			mg.setMaxStack();
@@ -215,6 +221,222 @@ public class ConstantFolder
 		 */
 	}
 
+	public class Result
+	{
+		//helps return the instruction list and the ConstantPoolGen after editing them
+		// in each function
+		private InstructionList default_il;
+		private ConstantPoolGen default_cpgen;
+	}
+
+	private Result replaceInstructions(InstructionList il, InstructionHandle ih, InstructionHandle prev1, InstructionHandle prev2, Number result, ConstantPoolGen cpg)
+	{
+		int index = 0;
+		if (prev1.getInstruction() instanceof LDC)
+		{
+			//specific for integer and float values
+			Object obj1 = ((LDC) prev1.getInstruction()).getValue(cpg);
+			if (obj1 instanceof Integer)
+			{
+				index = cpg.addInteger(result.intValue());
+			}else if (obj1 instanceof Float)
+			{
+				index = cpg.addFloat(result.floatValue());
+			}
+
+			il.insert(ih, new LDC(index));
+
+		} else if (prev1.getInstruction() instanceof LDC2_W)
+		{
+			//specific for long and double values
+			Object obj1 = ((LDC2_W) prev1.getInstruction()).getValue(cpg);
+			if (obj1 instanceof Long)
+			{
+				//System.out.println("long value --> " + result.longValue() + "\n");
+				index = cpg.addLong(result.longValue());
+			}else if (obj1 instanceof Double)
+			{
+				index = cpg.addDouble(result.doubleValue());
+			}
+
+			il.insert(ih, new LDC2_W(index));
+		}
+
+
+		//delete the instructions after adding the correct ones before
+		try {
+			il.delete(ih);
+			il.delete(prev1);
+			il.delete(prev2);
+		} catch (TargetLostException e) {
+			throw new RuntimeException(e);
+		}
+		Result toReturn = new Result();
+		toReturn.default_il = il;
+		toReturn.default_cpgen = cpg;
+
+		return toReturn; //return the updated instruction list and the ConstantPoolGen
+	}
+
+	private Number performOperation(Object obj1, Object obj2, Instruction inst)
+	{
+		//for subtraction -- obj2 (prev prev instruction) - obj1 (prev instruction)
+		//for division --> obj2 / obj1
+
+		//Integers
+		if (inst instanceof IADD && obj1 instanceof Integer && obj2 instanceof Integer) {
+			//System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
+			return (Integer) obj1 + (Integer) obj2;
+		} else if ((inst instanceof ISUB && obj1 instanceof Integer && obj2 instanceof Integer))
+		{
+			//System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
+			return (Integer) obj2 - (Integer) obj1;
+		} else if ((inst instanceof IMUL && obj1 instanceof Integer && obj2 instanceof Integer))
+		{
+			//System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
+			return (Integer) obj1 * (Integer) obj2;
+		} else if ((inst instanceof IDIV && obj1 instanceof Integer && obj2 instanceof Integer))
+		{
+			//System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
+			return (Integer) obj2 / (Integer) obj1;
+		}
+
+		//long
+		if (inst instanceof LADD && obj1 instanceof Long && obj2 instanceof Long) {
+			//System.out.println("1st: " + (Long) obj1 + " and " + (Long) obj2 + " = ");
+			return (Long) obj1 + (Long) obj2;
+		} else if ((inst instanceof LSUB && obj1 instanceof Long && obj2 instanceof Long))
+		{
+			//System.out.println("1st: " + obj2 + " - " + obj1 + " = " + ((Long) obj2 - (Long) obj1) + "\n");
+			return (Long) obj2 - (Long) obj1;
+		} else if ((inst instanceof LMUL && obj1 instanceof Long && obj2 instanceof Long))
+		{
+			//System.out.println("1st: " + (Long) obj1 + " and " + (Long) obj2 + " = ");
+			return (Long) obj1 * (Long) obj2;
+		} else if ((inst instanceof LDIV && obj1 instanceof Long && obj2 instanceof Long))
+		{
+			//System.out.println("1st: " + (Long) obj1 + " and " + (Long) obj2 + " = ");
+			return (Long) obj2 / (Long) obj1;
+		}
+
+		//float
+		if (inst instanceof FADD && obj1 instanceof Float && obj2 instanceof Float) {
+			//System.out.println("1st: " + (Float) obj1 + " and " + (Float) obj2 + " = ");
+			return (Float) obj1 + (Float) obj2;
+		} else if ((inst instanceof FSUB && obj1 instanceof Float && obj2 instanceof Float))
+		{
+			//System.out.println("1st: " + (Float) obj1 + " and " + (Float) obj2 + " = ");
+			return (Float) obj2 - (Float) obj1;
+		} else if ((inst instanceof FMUL && obj1 instanceof Float && obj2 instanceof Float))
+		{
+			//System.out.println("1st: " + (Float) obj1 + " and " + (Float) obj2 + " = ");
+			return (Float) obj1 * (Float) obj2;
+		} else if ((inst instanceof FDIV && obj1 instanceof Float && obj2 instanceof Float))
+		{
+			//System.out.println("1st: " + (Float) obj1 + " and " + (Float) obj2 + " = ");
+			return (Float) obj2 / (Float) obj1;
+		}
+
+		//double
+		if (inst instanceof DADD && obj1 instanceof Double && obj2 instanceof Double) {
+			//System.out.println("1st: " + (Double) obj1 + " and " + (Double) obj2 + " = ");
+			return (Double) obj1 + (Double) obj2;
+		} else if ((inst instanceof DSUB && obj1 instanceof Double && obj2 instanceof Double))
+		{
+			//System.out.println("1st: " + (Double) obj1 + " and " + (Double) obj2 + " = ");
+			return (Double) obj2 - (Double) obj1;
+		} else if ((inst instanceof DMUL && obj1 instanceof Double && obj2 instanceof Double))
+		{
+			//System.out.println("1st: " + (Double) obj1 + " and " + (Double) obj2 + " = ");
+			return (Double) obj1 * (Double) obj2;
+		} else if ((inst instanceof DDIV && obj1 instanceof Double && obj2 instanceof Double))
+		{
+			//System.out.println("1st: " + (Double) obj1 + " and " + (Double) obj2 + " = ");
+			return (Double) obj2 / (Double) obj1;
+		}
+
+
+		// Add more conditions for other types and operations (ISUB, IMUL, IDIV, etc.)
+		return 0;
+	}
+
+	public Result handleArithmetic(InstructionHandle ih, InstructionList instructionList, ConstantPoolGen cpgen)
+	{
+
+		Result returned = new Result();
+		returned.default_il = instructionList;
+		returned.default_cpgen = cpgen;
+
+		InstructionHandle prev1 = ih.getPrev();
+		InstructionHandle prev2 = prev1 != null ? prev1.getPrev() : null;
+		if (prev1 != null && prev2 != null) {
+			Instruction prevInst1 = prev1.getInstruction();
+			Instruction prevInst2 = prev2.getInstruction();
+
+			//get the value being loaded by checking if it is LDC or LDC2_W
+			if (prevInst1 instanceof LDC && prevInst2 instanceof LDC) {
+				Object obj1 = ((LDC) prevInst1).getValue(cpgen);
+				Object obj2 = ((LDC) prevInst2).getValue(cpgen);
+
+				if (obj1.getClass().equals(obj2.getClass())) {
+					Number result = performOperation(obj1, obj2, ih.getInstruction());
+					//System.out.println("result = " + result + "\n");
+					returned = replaceInstructions(instructionList, ih, prev1, prev2, result, cpgen);
+
+				}
+			} else if (prevInst1 instanceof LDC2_W && prevInst2 instanceof LDC2_W)
+			{
+				Object obj1 = ((LDC2_W) prevInst1).getValue(cpgen);
+				Object obj2 = ((LDC2_W) prevInst2).getValue(cpgen);
+
+				if (obj1.getClass().equals(obj2.getClass())) {
+					Number result = performOperation(obj1, obj2, ih.getInstruction());
+					//System.out.println("result = " + result + "\n");
+					returned = replaceInstructions(instructionList, ih, prev1, prev2, result, cpgen);
+
+				}
+			}
+		}
+
+		//'returned' = updated instruction list and the ConstantPoolGen after editing them
+		return returned;
+	}
+
+	public ConstantPoolGen SimpleFoldingOptimization(ConstantPoolGen cpgen)
+	{
+		Method[] methods = gen.getMethods();
+		Result returned = new Result();
+
+		for (Method method : methods) {
+
+			MethodGen methodGen = new MethodGen(method, gen.getClassName(), cpgen);
+			InstructionList instructionList = methodGen.getInstructionList();
+
+			returned.default_il = instructionList;
+			returned.default_cpgen = cpgen;
+
+			if (instructionList != null) {
+				for (InstructionHandle ih : instructionList.getInstructionHandles()) {
+
+					Instruction instruction = ih.getInstruction();
+
+					if (instruction instanceof ArithmeticInstruction)
+					{
+						returned = handleArithmetic(ih, instructionList, cpgen);
+					}
+				}
+
+				//'returned' = updated instruction list and the ConstantPoolGen after editing them
+				methodGen.setInstructionList(returned.default_il);
+				methodGen.setMaxStack(); //stack frame size needs to be correctly calculated and set
+				methodGen.setMaxLocals();
+				gen.replaceMethod(method, methodGen.getMethod()); //'method' = original method --> replace this with the new method with the updated InstructionList
+			}
+		}
+		//only need to return the ConstantPoolGen since gen's method has been replaced/ updated
+		return returned.default_cpgen;
+	}
+
 
 
 	public void optimize() {
@@ -223,6 +445,7 @@ public class ConstantFolder
 
 		// Check if the class is the specific target for dynamic variable folding
 		if ((cgen.getClassName()).equals("comp0012.target.DynamicVariableFolding")) {
+			System.out.println("dynamic\n");
 			Method[] methods = cgen.getMethods();
 			for (Method method : methods) {
 				// Apply dynamic variable optimization to each method
@@ -236,11 +459,15 @@ public class ConstantFolder
 			}
 
 			cgen.setMethods(optimizedMethods); // Now this is the updated array
+		} else if ((cgen.getClassName()).equals("comp0012.target.SimpleFolding"))
+		{
+			System.out.println("simple\n");
+			cpgen = SimpleFoldingOptimization(cpgen);
 		}
 
 
 
-		// Update the constant pool and get the optimized JavaClass
+			// Update the constant pool and get the optimized JavaClass
 		gen.setConstantPool(cpgen);
 		this.optimized = gen.getJavaClass();
 	}
