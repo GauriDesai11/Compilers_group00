@@ -13,6 +13,9 @@ import org.apache.bcel.classfile.*;
 import org.apache.bcel.generic.*;
 import org.apache.bcel.util.InstructionFinder;
 
+import org.apache.bcel.generic.ICONST;
+import org.apache.bcel.generic.Instruction;
+
 
 public class ConstantFolder
 {
@@ -381,16 +384,27 @@ public class ConstantFolder
 				if (!modifiedVariables.contains(index)) {
 					InstructionHandle prevIh = ih.getPrev();
 					//System.out.println(prevIh.getInstruction());
-					if (prevIh != null && (prevIh.getInstruction() instanceof ArithmeticInstruction || isLoadConstantValueInstruction(prevIh.getInstruction()))) {
-						Number constantValue = evaluateExpression(prevIh, cpgen, constantVariables);
-						
-						if (constantValue != null) {
-							constantVariables.put(index, constantValue);
-							System.out.println("Constant variable found: Index = " + index + ", Value = " + constantValue);
+					if (prevIh != null) {
+						Instruction prevIh_inst = prevIh.getInstruction();
+						if (prevIh_inst instanceof ArithmeticInstruction || isLoadConstantValueInstruction(prevIh_inst) || prevIh_inst instanceof ReturnInstruction) {
+							Number constantValue = evaluateExpression(prevIh, cpgen, constantVariables);
+							if (constantValue != null) {
+								constantVariables.put(index, constantValue);
+								System.out.println("Constant variable found: Index = " + index + ", Value = " + constantValue);
+							}
 						}
 					}
 				}
-			} else if (modifiesVariable(inst)) {
+			} 
+			// else if (isLoadConstantValueInstruction(inst) && ih.getNext() != null) {
+			// 	Instruction nextInst = ih.getNext().getInstruction();
+			// 	if (nextInst instanceof StoreInstruction) {
+			// 		int index = ((StoreInstruction) nextInst).getIndex();
+			// 		Object value = getConstantValueFromInstruction(inst, cpgen);
+			// 		constantValuesMap.put(index, value);
+			// 	}
+			// } 
+			else if (modifiesVariable(inst)) {
 				int index = getIndexFromInstruction(inst);
 				modifiedVariables.add(index);
 			}
@@ -471,16 +485,73 @@ public class ConstantFolder
 				}
 			}
 			else if(prev1_inst instanceof ConstantPushInstruction){
-				System.out.println("here");
+				//System.out.println("here");
 				// System.out.println(prev1_inst.);
 				// System.out.println("here");
-				InstructionHandle currentHandle = prev1; // Starting from the previous instruction handle
-				while (currentHandle != null && !(currentHandle.getInstruction() instanceof StoreInstruction)) {
-					System.out.println(currentHandle.getInstruction());
-					currentHandle = currentHandle.getPrev(); // Move to the previous instruction handle
+				Number res = 0;
+				InstructionHandle currentHandle1 = prev1; // Starting from the previous instruction handle
+				InstructionHandle currentHandle2 = prev2;
+				while (currentHandle2 != null && !(currentHandle2.getInstruction() instanceof StoreInstruction)) {
+					//System.out.println(currentHandle.getInstruction());
+					currentHandle1 = currentHandle1.getPrev(); // Move to the previous instruction handle
+					currentHandle2 = currentHandle2.getPrev();
 				}
-
+				currentHandle1 = currentHandle1.getNext();
+				currentHandle2 = currentHandle2.getNext();
+				// System.out.println(currentHandle1.getInstruction());
+				// System.out.println(currentHandle2.getInstruction());
+				// while (currentHandle2 != null && !(currentHandle2.getInstruction() instanceof StoreInstruction)){
+				// 	System.out.println(currentHandle2.getInstruction());
+				// 	currentHandle2 = currentHandle2.getNext();
+				// }
+				while (currentHandle2 != null && !(currentHandle2.getInstruction() instanceof StoreInstruction)){
+					Instruction ch2_inst = currentHandle2.getInstruction();
+					if (ch2_inst instanceof ArithmeticInstruction){
+						//System.out.println("correct flow3");
+						InstructionHandle ch2_prev1 = currentHandle2.getPrev();
+						InstructionHandle ch2_prev2 = ch2_prev1 != null ?ch2_prev1.getPrev() : null;
+						Instruction ch2_prev1_inst = ch2_prev1.getInstruction();
+						Instruction ch2_prev2_inst = ch2_prev2.getInstruction();
+						// System.out.println(ch2_prev1_inst);
+						// System.out.println(ch2_prev2_inst);
+						if (ch2_prev2_inst instanceof LoadInstruction){
+							//System.out.println("correct flow2");
+							//LoadInstruction prev1_linst = (LoadInstruction) prev1_inst;
+							LoadInstruction ch2_prev2_linst = (LoadInstruction) ch2_prev2_inst;
+							int ch2_prev2_index = ch2_prev2_linst.getIndex();
+							if (ch2_prev1_inst instanceof SIPUSH){
+								// System.out.println("correct flow");
+								if ((constantVariables.containsKey(ch2_prev2_index))){
+									Number value1 = constantVariables.get(ch2_prev2_index);
+									Number value2 = ((SIPUSH)ch2_prev1_inst).getValue();
+									// System.out.println(value1);
+									// System.out.println(value2);
+									res = performOperation(value1, value2, ch2_inst);
+									//System.out.println(res);
+								}
+								// LoadInstruction ch2_prev2_linst = (LoadInstruction) ch2_prev2;
+								// int ch2_prev2_index = ch2_prev2_linst.getIndex();
+								// if (constantVariables.containsKey(prev1_index) && constantVariables.containsKey(prev2_index)) {
+								// 	System.out.println("Evaluating expression for possible constant folding.");
+								// 	Number value1 = constantVariables.get(prev1_index);
+								// 	Number value2 = constantVariables.get(prev2_index);	
+								// 	return performOperation(value1, value2, inst);
+								// }
+							}
+						}
+						else if (ch2_prev1_inst instanceof ICONST && !(ch2_prev2_inst instanceof LoadInstruction) && !(isLoadConstantValueInstruction(ch2_prev2_inst))){
+							//System.out.println("correct flow4");
+							Number value = ((ICONST)ch2_prev1_inst).getValue();
+							res = performOperation(res, value, ch2_inst);
+						}
+					}
+					currentHandle2 = currentHandle2.getNext();
+				}
+				return res;
 			}
+		}
+		else if(inst instanceof ReturnInstruction){
+
 		}
 		return getConstantValueFromInstruction(inst, cpgen);
 	}
