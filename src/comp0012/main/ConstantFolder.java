@@ -109,7 +109,7 @@ public class ConstantFolder
 
 		//long
 		if (inst instanceof LADD && obj1 instanceof Long && obj2 instanceof Long) {
-			//System.out.println("1st: " + (Long) obj1 + " and " + (Long) obj2 + " = ");
+			System.out.println("1st: " + (Long) obj1 + " and " + (Long) obj2 + " = ");
 			return (Long) obj1 + (Long) obj2;
 		} else if ((inst instanceof LSUB && obj1 instanceof Long && obj2 instanceof Long))
 		{
@@ -123,6 +123,10 @@ public class ConstantFolder
 		{
 			//System.out.println("1st: " + (Long) obj1 + " and " + (Long) obj2 + " = ");
 			return (Long) obj2 / (Long) obj1;
+		} else if ((inst instanceof LCMP && obj1 instanceof Long && obj2 instanceof Long))
+		{
+			System.out.println("1st: " + (Long) obj1 + " and " + (Long) obj2 + " = ");
+			return (Integer) obj2 / (Integer) obj1;
 		}
 
 		//float
@@ -372,9 +376,11 @@ public class ConstantFolder
 			if (inst instanceof StoreInstruction) {
 				StoreInstruction store = (StoreInstruction) inst;
 				int index = store.getIndex();
-				
+				//System.out.println(index);
+				//System.out.println(modifiedVariables.contains(index));
 				if (!modifiedVariables.contains(index)) {
 					InstructionHandle prevIh = ih.getPrev();
+					//System.out.println(prevIh.getInstruction());
 					if (prevIh != null && (prevIh.getInstruction() instanceof ArithmeticInstruction || isLoadConstantValueInstruction(prevIh.getInstruction()))) {
 						Number constantValue = evaluateExpression(prevIh, cpgen, constantVariables);
 						
@@ -401,22 +407,119 @@ public class ConstantFolder
 			instruction instanceof DCONST || instruction instanceof LCONST;
 	}
 
+	// private Number evaluateExpression(InstructionHandle ih, ConstantPoolGen cpgen, Map<Integer, Number> constantVariables) {
+	// 	Instruction inst = ih.getInstruction();
+	// 	InstructionHandle prev1 = ih.getPrev();
+	// 	InstructionHandle prev2 = prev1 != null ? prev1.getPrev() : null;
+	// 	//System.out.println("Evaluating expression for possible constant folding.");
+	// 	System.out.println(inst instanceof ArithmeticInstruction);
+	// 	System.out.println(prev1 != null);
+	// 	System.out.println(prev2 != null);
+	// 	//System.out.println(ih.getPrev().getPrev() != null);
+	// 	if (inst instanceof ArithmeticInstruction && prev1 != null && prev2 != null) {
+	// 		Number value1 = getConstantValueFromInstruction(prev1.getInstruction(), cpgen);
+	// 		Number value2 = getConstantValueFromInstruction(prev2.getInstruction(), cpgen);
+	// 		//System.out.println(ih.getInstruction());
+	// 		System.out.println(prev1.getInstruction());
+	// 		System.out.println(prev2.getInstruction());
+	// 		System.out.println(value1);
+	// 		System.out.println(value2);	
+	// 		if (value1 != null && value2 != null) {
+	// 			System.out.println("Evaluating expression for possible constant folding.");
+	// 			return performOperation(value1, value2, inst);
+	// 		}
+	// 	}
+	// 	return getConstantValueFromInstruction(inst, cpgen);
+	// }
+
 	private Number evaluateExpression(InstructionHandle ih, ConstantPoolGen cpgen, Map<Integer, Number> constantVariables) {
 		Instruction inst = ih.getInstruction();
-		
-		if (inst instanceof ArithmeticInstruction && ih.getPrev() != null && ih.getPrev().getPrev() != null) {
-			InstructionHandle prev1 = ih.getPrev();
-			InstructionHandle prev2 = prev1.getPrev();
-			Number value1 = getConstantValueFromInstruction(prev1.getInstruction(), cpgen);
-			Number value2 = getConstantValueFromInstruction(prev2.getInstruction(), cpgen);
-			
-			if (value1 != null && value2 != null) {
-				System.out.println("Evaluating expression for possible constant folding.");
-				return performOperation(value1, value2, inst);
+		InstructionHandle prev1 = ih.getPrev();
+		InstructionHandle prev2 = prev1 != null ? prev1.getPrev() : null;
+		// System.out.println("Evaluating expression for possible constant folding.");
+		// System.out.println(inst);
+		// System.out.println(inst instanceof ArithmeticInstruction);
+		// System.out.println(prev1 != null);
+		// System.out.println(prev2 != null);
+		// System.out.println(prev1);
+		// System.out.println(prev2);
+		//System.out.println(ih.getPrev().getPrev() != null);
+		if (inst instanceof ArithmeticInstruction && prev1 != null && prev2 != null) {
+			Instruction prev1_inst = prev1.getInstruction();
+			Instruction prev2_inst = prev2.getInstruction();
+			// System.out.println(prev1_inst);
+			// System.out.println(prev2_inst);
+			if (prev1_inst instanceof LoadInstruction && prev2_inst instanceof LoadInstruction){
+				LoadInstruction prev1_linst = (LoadInstruction) prev1_inst;
+				LoadInstruction prev2_linst = (LoadInstruction) prev2_inst;
+				int prev1_index = prev1_linst.getIndex();
+				int prev2_index = prev2_linst.getIndex();
+				// System.out.println(prev1_index);
+				// System.out.println(prev2_index);
+				//Number value1 = getConstantValueFromInstruction(prev1.getInstruction(), cpgen);
+				//Number value2 = getConstantValueFromInstruction(prev2.getInstruction(), cpgen);
+				//System.out.println(ih.getInstruction());
+				// System.out.println(prev1.getInstruction());
+				// System.out.println(prev2.getInstruction());
+				if (constantVariables.containsKey(prev1_index) && constantVariables.containsKey(prev2_index)) {
+					System.out.println("Evaluating expression for possible constant folding.");
+					Number value1 = constantVariables.get(prev1_index);
+					Number value2 = constantVariables.get(prev2_index);
+					// System.out.println(value1);
+					// System.out.println(value2);	
+					return performOperation(value1, value2, inst);
+				}
+			}
+			else if(prev1_inst instanceof ConstantPushInstruction){
+				System.out.println("here");
+				// System.out.println(prev1_inst.);
+				// System.out.println("here");
+				InstructionHandle currentHandle = prev1; // Starting from the previous instruction handle
+				while (currentHandle != null && !(currentHandle.getInstruction() instanceof StoreInstruction)) {
+					System.out.println(currentHandle.getInstruction());
+					currentHandle = currentHandle.getPrev(); // Move to the previous instruction handle
+				}
+
 			}
 		}
 		return getConstantValueFromInstruction(inst, cpgen);
 	}
+
+	// public Result handleArithmetic(InstructionHandle ih, InstructionList instructionList, ConstantPoolGen cpgen)
+	// {
+	// 	Result returned = new Result();
+	// 	returned.default_il = instructionList;
+	// 	returned.default_cpgen = cpgen;
+
+	// 	InstructionHandle prev1 = ih.getPrev();
+	// 	InstructionHandle prev2 = prev1 != null ? prev1.getPrev() : null;
+	// 	if (prev1 != null && prev2 != null) {
+	// 		Instruction prevInst1 = prev1.getInstruction();
+	// 		Instruction prevInst2 = prev2.getInstruction();
+
+	// 		if (prevInst1 instanceof LDC && prevInst2 instanceof LDC) {
+	// 			Object obj1 = ((LDC) prevInst1).getValue(cpgen);
+	// 			Object obj2 = ((LDC) prevInst2).getValue(cpgen);
+
+	// 			if (obj1.getClass().equals(obj2.getClass())) {
+	// 				Number result = performOperation(obj1, obj2, ih.getInstruction());
+	// 				//System.out.println("result = " + result + "\n");
+	// 				returned = replaceInstructions(instructionList, ih, prev1, prev2, result, cpgen);
+	// 			}
+	// 		} else if (prevInst1 instanceof LDC2_W && prevInst2 instanceof LDC2_W)
+	// 		{
+	// 			Object obj1 = ((LDC2_W) prevInst1).getValue(cpgen);
+	// 			Object obj2 = ((LDC2_W) prevInst2).getValue(cpgen);
+
+	// 			if (obj1.getClass().equals(obj2.getClass())) {
+	// 				Number result = performOperation(obj1, obj2, ih.getInstruction());
+	// 				//System.out.println("result = " + result + "\n");
+	// 				returned = replaceInstructions(instructionList, ih, prev1, prev2, result, cpgen);
+	// 			}
+	// 		}
+	// 	}
+	// 	return returned;
+	// }
 
 	private boolean modifiesVariable(Instruction inst) {
 		return inst instanceof LoadInstruction || inst instanceof IINC || inst instanceof ArithmeticInstruction || inst instanceof StoreInstruction;
@@ -431,6 +534,13 @@ public class ConstantFolder
 		if (inst instanceof FCONST) return ((FCONST) inst).getValue();
 		if (inst instanceof DCONST) return ((DCONST) inst).getValue();
 		if (inst instanceof LCONST) return ((LCONST) inst).getValue();
+
+		// // Check for load instructions referencing local variables
+		// if (inst instanceof LocalVariableInstruction && inst instanceof LoadInstruction) {
+		// 	LocalVariableInstruction lvi = (LocalVariableInstruction) inst;
+		// 	return variableValues.get(lvi.getIndex()); // Return the value if it's constant
+		// }
+
 		return null; // Return null if the instruction does not yield a constant
 	}
 
