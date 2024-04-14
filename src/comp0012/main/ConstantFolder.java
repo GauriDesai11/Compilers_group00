@@ -165,6 +165,48 @@ public class ConstantFolder
 						// Replace the load instruction with the constant value
 						replaceLoadWithConstant(il, ih, variableValues.get(index), cpgen);
 					}
+				} else if (inst instanceof ArithmeticInstruction) {
+					InstructionHandle prev1 = ih.getPrev();
+					InstructionHandle prev2 = prev1 != null ? prev1.getPrev() : null;
+
+					if (prev1 != null && prev2 != null) {
+						Number value1 = getConstantValue(prev1, cpgen);
+						Number value2 = getConstantValue(prev2, cpgen);
+
+						if (value1 == null && prev1.getInstruction() instanceof LoadInstruction) {
+							// If the first operand is a load instruction, check if it loads a constant variable
+							int index = ((LoadInstruction) prev1.getInstruction()).getIndex();
+							value1 = variableValues.get(index);
+						}
+
+						if (value2 == null && prev2.getInstruction() instanceof LoadInstruction) {
+							// If the second operand is a load instruction, check if it loads a constant variable
+							int index = ((LoadInstruction) prev2.getInstruction()).getIndex();
+							value2 = variableValues.get(index);
+						}
+
+						if (value1 != null && value2 != null) {
+							// Perform the arithmetic operation on the constant values
+							Number result = performOperation(value1, value2, (ArithmeticInstruction) inst);
+
+							// Replace the arithmetic instruction with a constant push instruction
+							Instruction constantInst = createConstantPushInstruction(result, cpgen);
+							InstructionHandle newIh = il.insert(ih, constantInst);
+
+							try {
+								il.delete(prev2);
+								il.delete(prev1);
+								il.delete(ih);
+							} catch (TargetLostException e) {
+								// Update any targeters to point to the new instruction handle
+								for (InstructionHandle target : e.getTargets()) {
+									for (InstructionTargeter targeter : target.getTargeters()) {
+										targeter.updateTarget(target, newIh);
+									}
+								}
+							}
+						}
+					}
 				}
 			}
 
@@ -175,6 +217,27 @@ public class ConstantFolder
 			mg.setMaxLocals();
 			this.gen.replaceMethod(method, mg.getMethod());
 		}
+	}
+	private Instruction createConstantPushInstruction(Number value, ConstantPoolGen cpgen) {
+		if (value instanceof Integer) {
+			int intValue = value.intValue();
+			if (intValue >= -1 && intValue <= 5) {
+				return new ICONST(intValue);
+			} else if (intValue >= Byte.MIN_VALUE && intValue <= Byte.MAX_VALUE) {
+				return new BIPUSH((byte) intValue);
+			} else if (intValue >= Short.MIN_VALUE && intValue <= Short.MAX_VALUE) {
+				return new SIPUSH((short) intValue);
+			} else {
+				return new LDC(cpgen.addInteger(intValue));
+			}
+		} else if (value instanceof Long) {
+			return new LDC2_W(cpgen.addLong(value.longValue()));
+		} else if (value instanceof Float) {
+			return new LDC(cpgen.addFloat(value.floatValue()));
+		} else if (value instanceof Double) {
+			return new LDC2_W(cpgen.addDouble(value.doubleValue()));
+		}
+		return null;
 	}
 
 	public class Result
