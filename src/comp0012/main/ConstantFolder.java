@@ -375,7 +375,7 @@ public class ConstantFolder
 
 		for (InstructionHandle ih : il.getInstructionHandles()) {
 			Instruction inst = ih.getInstruction();
-			
+			//System.out.println(inst);
 			if (inst instanceof StoreInstruction) {
 				StoreInstruction store = (StoreInstruction) inst;
 				int index = store.getIndex();
@@ -396,6 +396,14 @@ public class ConstantFolder
 					}
 				}
 			} 
+			else if (inst instanceof ReturnInstruction){
+				Object constantValue = evaluateExpression(ih, cpgen, constantVariables);
+				if (constantValue != null) {
+					System.out.println("Constant variable found: Value = " + constantValue);
+					// constantVariables.put(index, constantValue);
+					// System.out.println("Constant variable found: Index = " + index + ", Value = " + constantValue);
+				}
+			}
 			// else if (isLoadConstantValueInstruction(inst) && ih.getNext() != null) {
 			// 	Instruction nextInst = ih.getNext().getInstruction();
 			// 	if (nextInst instanceof StoreInstruction) {
@@ -451,7 +459,7 @@ public class ConstantFolder
 		InstructionHandle prev1 = ih.getPrev();
 		InstructionHandle prev2 = prev1 != null ? prev1.getPrev() : null;
 		// System.out.println("Evaluating expression for possible constant folding.");
-		// System.out.println(inst);
+		System.out.println(inst);
 		// System.out.println(inst instanceof ArithmeticInstruction);
 		// System.out.println(prev1 != null);
 		// System.out.println(prev2 != null);
@@ -551,9 +559,159 @@ public class ConstantFolder
 			}
 		}
 		else if(inst instanceof ReturnInstruction){
-
+			//System.out.println(inst);
+			Instruction prev1_inst = prev1.getInstruction();
+			Instruction prev2_inst = prev2.getInstruction();
+			// System.out.println(prev1_inst);
+			// System.out.println(prev2_inst);
+			if (prev1_inst instanceof ArithmeticInstruction){
+				Number res = null;
+				InstructionHandle currentHandle1 = prev1;
+				while (currentHandle1 != null && !(currentHandle1.getInstruction() instanceof StoreInstruction)) {
+					//System.out.println(currentHandle1.getInstruction());
+					currentHandle1 = currentHandle1.getPrev(); // Move to the previous instruction handle
+					//currentHandle2 = currentHandle2.getPrev();
+				}
+				currentHandle1 = currentHandle1.getNext();
+				currentHandle1 = currentHandle1.getNext();
+				Instruction ch1_prev1_inst = currentHandle1.getInstruction();
+				InstructionHandle prevHandle = currentHandle1.getPrev();
+				Instruction ph_inst = prevHandle.getInstruction();
+				// System.out.println(ch1_prev1_inst);
+				// System.out.println(ph_inst);
+				if (ch1_prev1_inst instanceof LoadInstruction){
+					if (ph_inst instanceof LoadInstruction){
+						//System.out.println("correct flow");
+						LoadInstruction ch1_prev1_linst = (LoadInstruction) ch1_prev1_inst;
+						int ch1_prev1_index = ch1_prev1_linst.getIndex();
+						if ((constantVariables.containsKey(ch1_prev1_index))){
+							Number value1 = constantVariables.get(ch1_prev1_index);
+							//System.out.println(value1);
+							LoadInstruction ph_linst = (LoadInstruction) ph_inst;
+							int ph_linst_index = ph_linst.getIndex();
+							if ((constantVariables.containsKey(ph_linst_index))){
+								Number value2 = constantVariables.get(ph_linst_index);
+								//System.out.println(value2);
+								res = performOperation(value1.doubleValue(), value2.doubleValue(), prev1_inst);
+								System.out.println(res);
+								return res;
+							}
+						}
+					}
+				}
+				//System.out.println(currentHandle1.getInstruction());
+				//InstructionHandle prevHandle = currentHandle1.getPrev();
+			}
+			else{
+				Object res = null;
+				InstructionHandle currentHandle = prev2;
+				Instruction comparison = null;
+				while (currentHandle != null && !(currentHandle.getInstruction() instanceof StoreInstruction)) {
+					//System.out.println(currentHandle.getInstruction());
+					if (isComparisonInstruction(currentHandle.getInstruction())){
+						comparison = currentHandle.getInstruction();
+						//System.out.println("comparison found");
+					}
+					currentHandle = currentHandle.getPrev(); // Move to the previous instruction handle
+				}
+				if (currentHandle != null) {
+					//System.out.println(currentHandle);
+					currentHandle = currentHandle.getNext();
+					if (currentHandle != null){
+						Instruction ch_next_inst = currentHandle.getInstruction();
+						//System.out.println(ch_next_inst);
+						currentHandle = currentHandle.getNext();
+						if (currentHandle != null){
+							Instruction ch_next_inst2 = currentHandle.getInstruction();
+							//System.out.println(ch_next_inst2);
+							if (ch_next_inst instanceof LoadInstruction){
+								if (ch_next_inst instanceof LoadInstruction){
+									LoadInstruction ch_next_linst = (LoadInstruction) ch_next_inst;
+									LoadInstruction ch_next_linst2 = (LoadInstruction) ch_next_inst2;
+									int ch_next_index = ch_next_linst.getIndex();
+									int ch_next_index2 = ch_next_linst2.getIndex();
+									if ((constantVariables.containsKey(ch_next_index))){
+										if ((constantVariables.containsKey(ch_next_index2))){
+											Number value1 = constantVariables.get(ch_next_index);
+											Number value2 = constantVariables.get(ch_next_index2);
+											res = performComparison(value1, value2, comparison);
+											//System.out.println(res);
+											System.out.println("Constant variable found: Value = " + res);
+											//return res;
+										}
+									}	
+								}
+							}
+						}
+					}
+				}
+			}
 		}
 		return getConstantValueFromInstruction(inst, cpgen);
+	}
+
+	public boolean isComparisonInstruction(Instruction inst) {
+		return inst instanceof IfInstruction ||  // covers all the IF_xxx instructions
+			inst instanceof FCMPG || 
+			inst instanceof FCMPL || 
+			inst instanceof DCMPG ||
+			inst instanceof DCMPL;
+	}
+
+	private Boolean performComparison(Object obj1, Object obj2, Instruction inst) {
+		// Integer comparisons
+		if (obj1 instanceof Integer && obj2 instanceof Integer) {
+			int i1 = (Integer) obj1;
+			int i2 = (Integer) obj2;
+			if (inst instanceof IF_ICMPGT) {
+				return i1 > i2;
+			} else if (inst instanceof IF_ICMPGE) {
+				return i1 >= i2;
+			} else if (inst instanceof IF_ICMPLT) {
+				return i1 < i2;
+			} else if (inst instanceof IF_ICMPLE) {
+				return i1 <= i2;
+			} else if (inst instanceof IF_ICMPEQ) {
+				return i1 == i2;
+			} else if (inst instanceof IF_ICMPNE) {
+				return i1 != i2;
+			}
+		}
+
+		// Long comparisons
+		else if (obj1 instanceof Long && obj2 instanceof Long) {
+			long l1 = (Long) obj1;
+			long l2 = (Long) obj2;
+			if (inst instanceof LCMP) {
+				if (l1 < l2) return false;
+				else if (l1 > l2) return true;
+				else return null; // LCMP returns -1, 0, 1 which does not translate directly to Boolean
+			}
+		}
+
+		// Float comparisons
+		else if (obj1 instanceof Float && obj2 instanceof Float) {
+			float f1 = (Float) obj1;
+			float f2 = (Float) obj2;
+			if (inst instanceof FCMPG) {
+				return (f1 > f2) ? true : (f1 == f2) ? null : false;
+			} else if (inst instanceof FCMPL) {
+				return (f1 < f2) ? true : (f1 == f2) ? null : false;
+			}
+		}
+
+		// Double comparisons
+		else if (obj1 instanceof Double && obj2 instanceof Double) {
+			double d1 = (Double) obj1;
+			double d2 = (Double) obj2;
+			if (inst instanceof DCMPG) {
+				return (d1 > d2) ? true : (d1 == d2) ? null : false;
+			} else if (inst instanceof DCMPL) {
+				return (d1 < d2) ? true : (d1 == d2) ? null : false;
+			}
+		}
+
+		return null; // Return null if the comparison is not applicable or if operands are of mismatched types
 	}
 
 	// public Result handleArithmetic(InstructionHandle ih, InstructionList instructionList, ConstantPoolGen cpgen)
