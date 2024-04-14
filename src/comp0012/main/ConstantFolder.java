@@ -261,7 +261,7 @@ public class ConstantFolder
 				if (!modifiedVariables.contains(store.getIndex())) {
 					InstructionHandle prevIh = ih.getPrev();
 					System.out.println(prevIh);
-					if (prevIh != null && (prevIh.getInstruction() instanceof LDC || 
+					if (prevIh != null && (prevIh.getInstruction() instanceof LDC ||
 										   prevIh.getInstruction() instanceof LDC2_W ||
 										   prevIh.getInstruction() instanceof SIPUSH ||
 										   prevIh.getInstruction() instanceof BIPUSH)) {
@@ -381,12 +381,13 @@ public class ConstantFolder
 		if ((cgen.getClassName()).equals("comp0012.target.SimpleFolding"))
 		{
 			cpgen = SimpleFoldingOptimization(cpgen);
-		}
-
-		for (Method method : cgen.getMethods()) {
-			System.out.println("Processing method: " + method.getName());
-			Map<Integer, Number> constantVariables = findConstantVariables(method, cpgen);
-			replaceConstantVariableLoads(method, constantVariables, cpgen);
+		}else if ((cgen.getClassName()).equals("comp0012.target.ConstantVariableFolding"))
+		{
+			for (Method method : cgen.getMethods()) {
+				System.out.println("Processing method: " + method.getName());
+				Map<Integer, Number> constantVariables = findConstantVariables(method, cpgen);
+				replaceConstantVariableLoads(method, constantVariables, cpgen);
+			}
 		}
 
 		gen.setConstantPool(cpgen); //update the constant pool
