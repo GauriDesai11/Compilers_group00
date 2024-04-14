@@ -165,6 +165,9 @@ public class ConstantFolder
 						// Replace the load instruction with the constant value
 						replaceLoadWithConstant(il, ih, variableValues.get(index), cpgen);
 					}
+				} else if (inst instanceof ArithmeticInstruction)
+				{
+					handleVariableArithmetic(ih, il ,  cpgen);
 				}
 			}
 
@@ -216,6 +219,10 @@ public class ConstantFolder
 			}
 
 			il.insert(ih, new LDC2_W(index));
+		} else
+		{
+
+			il.insert(ih, new BIPUSH(result.byteValue()));
 		}
 
 
@@ -314,6 +321,102 @@ public class ConstantFolder
 
 		// Add more conditions for other types and operations (ISUB, IMUL, IDIV, etc.)
 		return 0;
+	}
+
+	private Number performVariableOperation(InstructionList instructionList, InstructionHandle ih, Number v1, Number v2)
+	{
+		Instruction inst = ih.getInstruction();
+		//Number result = 0;
+
+		//Integers
+		if (inst instanceof IADD) {
+			//System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
+			return  (Integer) v1 + (Integer) v2;
+		} else if ((inst instanceof ISUB))
+		{
+			//System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
+			return  (Integer) v2 - (Integer) v1;
+		} else if ((inst instanceof IMUL))
+		{
+			//System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
+			return  (Integer) v1 * (Integer) v2;
+		} else if ((inst instanceof IDIV))
+		{
+			//System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
+			return  (Integer) v2 / (Integer) v1;
+		}
+		// repeat for other data types
+
+		return 0;
+	}
+	public Result handleVariableArithmetic(InstructionHandle ih, InstructionList instructionList, ConstantPoolGen cpgen)
+	{
+		Result returned = new Result();
+		returned.default_il = instructionList;
+		returned.default_cpgen = cpgen;
+		Number resultValue = 0;
+
+		InstructionHandle prev1 = ih.getPrev();
+		InstructionHandle prev2 = prev1 != null ? prev1.getPrev() : null;
+		if (prev1 != null && prev2 != null)
+		{
+			Number v1 = 0;
+			Number v2 = 0;
+			Object obj = null;
+
+			Instruction prevInst1 = prev1.getInstruction();
+			Instruction prevInst2 = prev2.getInstruction();
+			if (prevInst1 instanceof BIPUSH)
+			{
+				BIPUSH bipush = (BIPUSH) prevInst1;
+				v1 = bipush.getValue();
+			} else if (prevInst1 instanceof SIPUSH)
+			{
+				SIPUSH sipush = (SIPUSH) prevInst1;
+				v1 = sipush.getValue();
+			} else if (prevInst1 instanceof ICONST)
+			{
+				ICONST iconst = (ICONST) prevInst1;
+				v1 = iconst.getValue();
+			} else if (prevInst1 instanceof LDC)
+			{
+				obj = ((LDC) prevInst1).getValue(cpgen);
+				if (obj instanceof Integer)
+				{
+					v1 = (Integer) obj;
+				}
+			}
+
+			if (prevInst2 instanceof BIPUSH)
+			{
+				BIPUSH bipush2 = (BIPUSH) prevInst2;
+				v2 = bipush2.getValue();
+			} else if (prevInst2 instanceof SIPUSH)
+			{
+				SIPUSH sipush2 = (SIPUSH) prevInst2;
+				v2 = sipush2.getValue();
+			} else if (prevInst2 instanceof ICONST)
+			{
+				ICONST iconst2 = (ICONST) prevInst2;
+				v2 = iconst2.getValue();
+			} else if (prevInst2 instanceof LDC)
+			{
+				obj = ((LDC) prevInst1).getValue(cpgen);
+				if (obj instanceof Integer)
+				{
+					v2 = (Integer) obj;
+				}
+			}
+
+			resultValue  = performVariableOperation(instructionList, ih, v1, v2);
+
+			returned = replaceInstructions(instructionList, ih, prev1, prev2, resultValue, cpgen);
+		}
+
+		//repeat if statement to check for ldc2_w and i2d (will have to check 2 previous instructions)
+
+
+		return returned;
 	}
 
 	public Result handleArithmetic(InstructionHandle ih, InstructionList instructionList, ConstantPoolGen cpgen)
