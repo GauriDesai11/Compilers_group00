@@ -32,7 +32,7 @@ public class ConstantFolder {
     private Stack<Number> vals;
     private HashMap<Integer, Number> vars;
     private Stack<InstructionHandle> loads;
-    private List<InstructionHandle> loopBounds;
+    private ArrayList<InstructionHandle> loopBounds;
     private Map<Integer, Boolean> varsUsed = new HashMap<>();
     private Map<Integer, InstructionHandle[]> varsIH = new HashMap<>();
     private boolean blockFlag;
@@ -51,42 +51,50 @@ public class ConstantFolder {
     private boolean isConstantPush(Instruction inst) {
         return inst instanceof LDC || inst instanceof LDC2_W
                 || inst instanceof ICONST || inst instanceof BIPUSH
-                || inst instanceof SIPUSH;
+                || inst instanceof SIPUSH || inst instanceof FCONST || inst instanceof DCONST || inst instanceof LCONST;
     }
 
     private Number getConstantValue(InstructionHandle ih, ConstantPoolGen cpgen) {
         Instruction inst = ih.getInstruction();
 
-        // Check for the LDC instruction which loads constants from the constant pool
         if (inst instanceof LDC) {
+            // LDC loads an integer/float from the constant pool
             LDC ldc = (LDC) inst;
             Object value = ldc.getValue(cpgen);
             if (value instanceof Number) {
                 return (Number) value;
             }
-        }
-        // Check for the LDC2_W instruction which loads long and double constants from the constant pool
-        else if (inst instanceof LDC2_W) {
+        } else if (inst instanceof LDC2_W) {
+            // LDC2_W loads a long/double from the constant pool
             LDC2_W ldc2_w = (LDC2_W) inst;
             Object value = ldc2_w.getValue(cpgen);
             if (value instanceof Number) {
                 return (Number) value;
             }
-        }
-        // Check for the BIPUSH instruction which pushes a byte constant onto the stack
-        else if (inst instanceof BIPUSH) {
+        } else if (inst instanceof BIPUSH) {
+            // BIPUSH loads a byte
             BIPUSH bipush = (BIPUSH) inst;
             return Integer.valueOf(bipush.getValue().intValue());
-        }
-        // Check for the SIPUSH instruction which pushes a short constant onto the stack
-        else if (inst instanceof SIPUSH) {
+        } else if (inst instanceof SIPUSH) {
+            // SIPUSH loads a short
             SIPUSH sipush = (SIPUSH) inst;
             return Integer.valueOf(sipush.getValue().intValue());
-        }
-        // Check for ICONST_* instructions which push various int constants onto the stack
-        else if (inst instanceof ICONST) {
+        } else if (inst instanceof ICONST) {
+            // ICONST loads integer constants -1 to 5
             ICONST iconst = (ICONST) inst;
             return Integer.valueOf(iconst.getValue().intValue());
+        } else if (inst instanceof FCONST) {
+            // FCONST loads float constants 0.0, 1.0, 2.0
+            FCONST fconst = (FCONST) inst;
+            return Float.valueOf(fconst.getValue().floatValue());
+        } else if (inst instanceof DCONST) {
+            // DCONST loads double constants 0.0 or 1.0
+            DCONST dconst = (DCONST) inst;
+            return Double.valueOf(dconst.getValue().doubleValue());
+        } else if (inst instanceof LCONST) {
+            // LCONST loads long constants 0 or 1
+            LCONST lconst = (LCONST) inst;
+            return Long.valueOf(lconst.getValue().longValue());
         }
 
         // None of the above, return null indicating the instruction does not push a constant number.
@@ -510,6 +518,12 @@ public class ConstantFolder {
         return false;
     }
 
+    private void handleConstantLoad(InstructionHandle ih) {
+        Number val = getConstantValue(ih, this.cpgen);
+        vals.push(val);
+        loads.push(ih);
+    }
+
     private void handleVarLoad(InstructionHandle ih, InstructionList il) {
         LoadInstruction load = (LoadInstruction) ih.getInstruction();
         // Number val = vars.getOrDefault(load.getIndex(), 0);
@@ -551,13 +565,20 @@ public class ConstantFolder {
 
         if (value1 != null && value2 != null) {
             switch (ifInst.getName()) {
-                case "if_icmpeq": return value1.intValue() == value2.intValue();
-                case "if_icmpne": return value1.intValue() != value2.intValue();
-                case "if_icmplt": return value1.intValue() < value2.intValue();
-                case "if_icmpge": return value1.intValue() >= value2.intValue();
-                case "if_icmpgt": return value1.intValue() > value2.intValue();
-                case "if_icmple": return value1.intValue() <= value2.intValue();
-                default: throw new IllegalArgumentException("Unsupported comparison instruction: " + ifInst.getName());
+                case "if_icmpeq":
+                    return value1.intValue() == value2.intValue();
+                case "if_icmpne":
+                    return value1.intValue() != value2.intValue();
+                case "if_icmplt":
+                    return value1.intValue() < value2.intValue();
+                case "if_icmpge":
+                    return value1.intValue() >= value2.intValue();
+                case "if_icmpgt":
+                    return value1.intValue() > value2.intValue();
+                case "if_icmple":
+                    return value1.intValue() <= value2.intValue();
+                default:
+                    throw new IllegalArgumentException("Unsupported comparison instruction: " + ifInst.getName());
             }
         }
         return false;
@@ -600,13 +621,13 @@ public class ConstantFolder {
         Number value = vals.pop();
 
         Number converted = null;
-        if (convInst instanceof D2I || convInst instanceof F2I || convInst instanceof L2I){
+        if (convInst instanceof D2I || convInst instanceof F2I || convInst instanceof L2I) {
             converted = value.intValue();
-        } else if (convInst instanceof I2D || convInst instanceof L2D || convInst instanceof F2D){
+        } else if (convInst instanceof I2D || convInst instanceof L2D || convInst instanceof F2D) {
             converted = value.doubleValue();
-        } else if (convInst instanceof I2F || convInst instanceof L2F || convInst instanceof D2F){
+        } else if (convInst instanceof I2F || convInst instanceof L2F || convInst instanceof D2F) {
             converted = value.floatValue();
-        } else if (convInst instanceof I2L || convInst instanceof D2L || convInst instanceof F2L){
+        } else if (convInst instanceof I2L || convInst instanceof D2L || convInst instanceof F2L) {
             converted = value.longValue();
         }
 
@@ -621,6 +642,9 @@ public class ConstantFolder {
         if (inst instanceof StoreInstruction) {
             System.out.println("StoreInstruction");
             handleStore(ih);
+        } else if (isConstantPush(inst)) {
+            System.out.println("Constant LoadInstruction");
+            handleConstantLoad(ih);
         } else if (inst instanceof LoadInstruction) {
             System.out.println("LoadInstruction");
             handleVarLoad(ih, il);
@@ -676,6 +700,8 @@ public class ConstantFolder {
 
     public void optimize() {
         cgen = new ClassGen(original);
+        cgen.setMajor(50);
+        cgen.setMinor(0);
         cpgen = cgen.getConstantPool();
 
         vals = new Stack<Number>();
@@ -685,6 +711,7 @@ public class ConstantFolder {
         varsIH = new HashMap<Integer, InstructionHandle[]>();
 
         for (int i = 0; i < cgen.getMethods().length; i++) {
+            System.out.println("Method " + i);
             methodOptimiser(cgen.getMethodAt(i));
             boolean finishedOptimising = false;
             cleanup();
