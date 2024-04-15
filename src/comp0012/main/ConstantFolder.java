@@ -77,21 +77,6 @@ public class ConstantFolder
 		return null;
 	}
 
-	private boolean hasBeenReassigned(int index, InstructionHandle start, InstructionHandle end){
-		InstructionHandle current = start;
-		while (current != null && current != end){
-			Instruction inst = current.getInstruction();
-			if (inst instanceof StoreInstruction){
-				StoreInstruction store = (StoreInstruction) inst;
-				if (store.getIndex() == index){
-					return true;
-				}
-			}
-			current = current.getNext();
-		}
-		return false;
-	}
-
 	private void replaceLoadWithConstant(InstructionList il, InstructionHandle ih, Number value, ConstantPoolGen cpgen) {
 		Instruction newInst = null;
 
