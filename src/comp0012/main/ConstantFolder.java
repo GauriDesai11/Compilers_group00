@@ -315,71 +315,53 @@ public class ConstantFolder {
     }
 
     private Number performOperation(Object obj1, Object obj2, Instruction inst) {
-        //for subtraction -- obj2 (prev prev instruction) - obj1 (prev instruction)
-        //for division --> obj2 / obj1
+        Number num1 = (Number) obj1;
+        Number num2 = (Number) obj2;
 
-        //Integers
-        if (inst instanceof IADD && obj1 instanceof Integer && obj2 instanceof Integer) {
-            //System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
-            return (Integer) obj1 + (Integer) obj2;
-        } else if ((inst instanceof ISUB && obj1 instanceof Integer && obj2 instanceof Integer)) {
-            //System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
-            return (Integer) obj2 - (Integer) obj1;
-        } else if ((inst instanceof IMUL && obj1 instanceof Integer && obj2 instanceof Integer)) {
-            //System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
-            return (Integer) obj1 * (Integer) obj2;
-        } else if ((inst instanceof IDIV && obj1 instanceof Integer && obj2 instanceof Integer)) {
-            //System.out.println("1st: " + (Integer) obj1 + " and " + (Integer) obj2 + " = ");
-            return (Integer) obj2 / (Integer) obj1;
+        // Integers
+        if (inst instanceof IADD) {
+            return num1.intValue() + num2.intValue();
+        } else if (inst instanceof ISUB) {
+            return num1.intValue() - num2.intValue();
+        } else if (inst instanceof IMUL) {
+            return num1.intValue() * num2.intValue();
+        } else if (inst instanceof IDIV) {
+            return num1.intValue() / num2.intValue();
         }
 
-        //long
-        if (inst instanceof LADD && obj1 instanceof Long && obj2 instanceof Long) {
-            //System.out.println("1st: " + (Long) obj1 + " and " + (Long) obj2 + " = ");
-            return (Long) obj1 + (Long) obj2;
-        } else if ((inst instanceof LSUB && obj1 instanceof Long && obj2 instanceof Long)) {
-            //System.out.println("1st: " + obj2 + " - " + obj1 + " = " + ((Long) obj2 - (Long) obj1) + "\n");
-            return (Long) obj2 - (Long) obj1;
-        } else if ((inst instanceof LMUL && obj1 instanceof Long && obj2 instanceof Long)) {
-            //System.out.println("1st: " + (Long) obj1 + " and " + (Long) obj2 + " = ");
-            return (Long) obj1 * (Long) obj2;
-        } else if ((inst instanceof LDIV && obj1 instanceof Long && obj2 instanceof Long)) {
-            //System.out.println("1st: " + (Long) obj1 + " and " + (Long) obj2 + " = ");
-            return (Long) obj2 / (Long) obj1;
+        // Long
+        if (inst instanceof LADD) {
+            return num1.longValue() + num2.longValue();
+        } else if (inst instanceof LSUB) {
+            return num1.longValue() - num2.longValue();
+        } else if (inst instanceof LMUL) {
+            return num1.longValue() * num2.longValue();
+        } else if (inst instanceof LDIV) {
+            return num1.longValue() / num2.longValue();
         }
 
-        //float
-        if (inst instanceof FADD && obj1 instanceof Float && obj2 instanceof Float) {
-            //System.out.println("1st: " + (Float) obj1 + " and " + (Float) obj2 + " = ");
-            return (Float) obj1 + (Float) obj2;
-        } else if ((inst instanceof FSUB && obj1 instanceof Float && obj2 instanceof Float)) {
-            //System.out.println("1st: " + (Float) obj1 + " and " + (Float) obj2 + " = ");
-            return (Float) obj2 - (Float) obj1;
-        } else if ((inst instanceof FMUL && obj1 instanceof Float && obj2 instanceof Float)) {
-            //System.out.println("1st: " + (Float) obj1 + " and " + (Float) obj2 + " = ");
-            return (Float) obj1 * (Float) obj2;
-        } else if ((inst instanceof FDIV && obj1 instanceof Float && obj2 instanceof Float)) {
-            //System.out.println("1st: " + (Float) obj1 + " and " + (Float) obj2 + " = ");
-            return (Float) obj2 / (Float) obj1;
+        // Float
+        if (inst instanceof FADD) {
+            return num1.floatValue() + num2.floatValue();
+        } else if (inst instanceof FSUB) {
+            return num1.floatValue() - num2.floatValue();
+        } else if (inst instanceof FMUL) {
+            return num1.floatValue() * num2.floatValue();
+        } else if (inst instanceof FDIV) {
+            return num1.floatValue() / num2.floatValue();
         }
 
-        //double
-        if (inst instanceof DADD && obj1 instanceof Double && obj2 instanceof Double) {
-            //System.out.println("1st: " + (Double) obj1 + " and " + (Double) obj2 + " = ");
-            return (Double) obj1 + (Double) obj2;
-        } else if ((inst instanceof DSUB && obj1 instanceof Double && obj2 instanceof Double)) {
-            //System.out.println("1st: " + (Double) obj1 + " and " + (Double) obj2 + " = ");
-            return (Double) obj2 - (Double) obj1;
-        } else if ((inst instanceof DMUL && obj1 instanceof Double && obj2 instanceof Double)) {
-            //System.out.println("1st: " + (Double) obj1 + " and " + (Double) obj2 + " = ");
-            return (Double) obj1 * (Double) obj2;
-        } else if ((inst instanceof DDIV && obj1 instanceof Double && obj2 instanceof Double)) {
-            //System.out.println("1st: " + (Double) obj1 + " and " + (Double) obj2 + " = ");
-            return (Double) obj2 / (Double) obj1;
+        // Double
+        if (inst instanceof DADD) {
+            return num1.doubleValue() + num2.doubleValue();
+        } else if (inst instanceof DSUB) {
+            return num1.doubleValue() - num2.doubleValue();
+        } else if (inst instanceof DMUL) {
+            return num1.doubleValue() * num2.doubleValue();
+        } else if (inst instanceof DDIV) {
+            return num1.doubleValue() / num2.doubleValue();
         }
 
-
-        // Add more conditions for other types and operations (ISUB, IMUL, IDIV, etc.)
         return 0;
     }
 
@@ -468,6 +450,14 @@ public class ConstantFolder {
         }
     }
 
+    private void deleteInstructionsSafely(InstructionList il, InstructionHandle ihStart, InstructionHandle ihEnd) {
+        try {
+            il.delete(ihStart, ihEnd);
+        } catch (TargetLostException e) {
+            // do nothing
+        }
+    }
+
     private void handleArithmetic(InstructionHandle ih, InstructionList il) {
         if (blockFlag) return;
 
@@ -536,18 +526,40 @@ public class ConstantFolder {
         }
     }
 
+    private void handleComparisonLong(InstructionHandle ih, InstructionList il) {
+        if (!blockFlag) {
+            long val1 = (Long) vals.pop();
+            long val2 = (Long) vals.pop();
+
+            int result;
+            if (val1 < val2) {
+                result = -1;
+            } else if (val1 > val2) {
+                result = 1;
+            } else {
+                result = 0;
+            }
+
+            deleteInstructionSafely(il, loads.pop());
+            deleteInstructionSafely(il, loads.pop());
+            ih.setInstruction(pushConstantOntoStack(result, cpgen));
+            loads.push(ih);
+            vals.push(result);
+        }
+    }
+
     private void handleComparison(InstructionHandle ih, InstructionList il) {
-        if (blockFlag) return;
+        if (!blockFlag) {
+            IfInstruction ifInst = (IfInstruction) ih.getInstruction();
+            InstructionHandle jumpTargetHandle = ifInst.getTarget(); // jump target
 
-        IfInstruction ifInst = (IfInstruction) ih.getInstruction();
-        boolean outcome = evaluateStaticCondition(ifInst, il);
-
-        if (outcome) {
-            InstructionHandle nextHandle = ifInst.getTarget();
-            deleteInstructionSafely(il, nextHandle);
-        } else {
-            InstructionHandle targetHandle = ifInst.getTarget();
-            deleteInstructionSafely(il, targetHandle.getPrev());
+            boolean outcome = evaluateStaticCondition(ifInst, il);
+            if (outcome) {
+                deleteInstructionSafely(il, ih);
+                branchDeleteFlag = true;
+            } else {
+                deleteInstructionsSafely(il, ih, jumpTargetHandle.getPrev());
+            }
         }
     }
 
@@ -584,12 +596,12 @@ public class ConstantFolder {
         return false;
     }
 
-    private void handleGoTo(InstructionHandle ih, InstructionList il) {
+    private void handleGoto(InstructionHandle ih, InstructionList il) {
         if (branchDeleteFlag) {
+            branchDeleteFlag = false;
             GotoInstruction gotoInst = (GotoInstruction) ih.getInstruction();
             InstructionHandle target = gotoInst.getTarget();
-            deleteInstructionSafely(il, target.getPrev());
-            branchDeleteFlag = false;
+            deleteInstructionsSafely(il, ih, target.getPrev());
         }
     }
 
@@ -651,15 +663,21 @@ public class ConstantFolder {
         } else if (inst instanceof ArithmeticInstruction) {
             System.out.println("ArithmeticInstruction");
             handleArithmetic(ih, il);
+        } else if (inst instanceof LCMP) {
+            System.out.println("Long IfInstruction");
+            handleComparisonLong(ih, il);
         } else if (inst instanceof IfInstruction) {
             System.out.println("IfInstruction");
             handleComparison(ih, il);
         } else if (inst instanceof GotoInstruction) {
             System.out.println("GotoInstruction");
-            handleGoTo(ih, il);
+            handleGoto(ih, il);
         } else if (inst instanceof ConversionInstruction) {
             System.out.println("ConversionInstruction");
             handleConversion(ih, il);
+        } else {
+            // unhandled type, reset the state
+            blockFlag = false;
         }
     }
 
@@ -690,6 +708,64 @@ public class ConstantFolder {
         cgen.replaceMethod(method, mg.getMethod());
     }
 
+    private boolean removeDeadCode(InstructionList il) {
+        boolean finished = true;
+        for (int varIndex : varsUsed.keySet()) {
+            boolean used = varsUsed.get(varIndex);
+            if (used) {
+                continue;
+            } else {
+                finished = false;
+                InstructionHandle[] ihPair = varsIH.get(varIndex); // 0 would be the load, 1 the store
+                deleteInstructionSafely(il, ihPair[0]);
+                deleteInstructionSafely(il, ihPair[1]);
+            }
+        }
+        return finished;
+    }
+
+    private boolean peepholeOptimiser(Method method) {
+        Code code = method.getCode();
+        InstructionList il = new InstructionList(code.getCode()); // get the bytecode
+        MethodGen mg = new MethodGen(method.getAccessFlags(), method.getReturnType(), method.getArgumentTypes(), null, method.getName(), cgen.getClassName(), il, cpgen);
+
+        // Find start and end of loop in bytecode
+        loopBounds = new ArrayList<InstructionHandle>();
+        for (InstructionHandle ih : il.getInstructionHandles()) {
+            if (ih.getInstruction() instanceof GotoInstruction) {
+                GotoInstruction instr = (GotoInstruction) ih.getInstruction();
+                if (instr.getTarget().getPosition() < ih.getPosition()) {
+                    loopBounds.add(instr.getTarget());
+                    loopBounds.add(ih);
+                }
+            }
+        }
+
+        for (InstructionHandle ih : il.getInstructionHandles()) {
+            Instruction inst = ih.getInstruction();
+            if (inst instanceof StoreInstruction) {
+                int index = ((StoreInstruction) inst).getIndex();
+                varsUsed.put(index, false);
+                InstructionHandle loadInstr = loads.isEmpty() ? null : loads.pop();
+                InstructionHandle[] instrPair = {loadInstr, ih};
+                varsIH.put(index, instrPair);
+            } else if (isConstantPush(inst)) {
+                loads.push(ih);
+            } else if (inst instanceof LoadInstruction) {
+                int index = ((LoadInstruction) inst).getIndex();
+                loads.push(ih);
+                varsUsed.put(index, true);
+            }
+        }
+        boolean finishedOptimising = removeDeadCode(il);
+
+        il.setPositions(true);
+        mg.setMaxStack(); // stops build error?
+        mg.setMaxLocals();
+        cgen.replaceMethod(method, mg.getMethod());
+        return finishedOptimising;
+    }
+
     /// @brief Clean up the data structs used in optimiser run
     private void cleanup() {
         vars.clear();
@@ -700,8 +776,6 @@ public class ConstantFolder {
 
     public void optimize() {
         cgen = new ClassGen(original);
-        cgen.setMajor(50);
-        cgen.setMinor(0);
         cpgen = cgen.getConstantPool();
 
         vals = new Stack<Number>();
@@ -715,10 +789,10 @@ public class ConstantFolder {
             methodOptimiser(cgen.getMethodAt(i));
             boolean finishedOptimising = false;
             cleanup();
-            // while (!finishedOptimising) {
-            // peepholeOptimiser(cgen.getMethodAt(i));
-            // cleanup();
-            // }
+            while (!finishedOptimising) {
+                finishedOptimising = peepholeOptimiser(cgen.getMethodAt(i));
+                cleanup();
+            }
         }
 
         this.optimized = cgen.getJavaClass();
